@@ -692,7 +692,7 @@ void MainWindow::compareCardLabel() {
         printf("log write error\n");
     }
 
-    if (is_end) {
+    if (result == 0) {
         toCardBarcode();
     } else {
         ui_->card_label_line->clear();
@@ -702,7 +702,7 @@ void MainWindow::compareCardLabel() {
 
 void MainWindow::toCardBarcode() {
     ui_->card_line->setEnabled(true);
-    ui_->card_label_line->clear();
+    // ui_->card_label_line->clear();
     ui_->card_label_line->setEnabled(false);
     ui_->card_line->setFocus();
 }
@@ -722,9 +722,15 @@ void MainWindow::compareCard() {
     auto    box_data_dao  = BoxDataDaoFactory::create(sqlite_db_, mysql_db_, order_dao_->currentOrder()->name);
     auto    card_data_dao = CardDataDaoFactory::create(sqlite_db_, mysql_db_, order_dao_->currentOrder()->name);
 
-    bool is_success = card_info->label_barcode == card_info->card_barcode;
+    auto end_number = box_data_dao->get(card_info->box_start_or_end_barcode.toStdString())->end_number;
+    bool is_box_end = false;
 
-    bool is_end = false;
+    bool is_success = card_info->label_barcode == card_info->card_barcode;
+    if (card_info->card_barcode.toStdString() == end_number) {
+        is_box_end = true;
+    }
+
+    bool is_batch_end = false;
     if (is_success) {
         log_msg = QString::asprintf("用户[%s] 内盒起始条码[%s] 标签条码[%s] 卡片条码[%s], 扫描成功", user_dao_->currentUser()->name.c_str(),
                                     card_info->box_start_or_end_barcode.toStdString().c_str(), card_info->label_barcode.toStdString().c_str(),
@@ -735,7 +741,7 @@ void MainWindow::compareCard() {
         card_widgets_.pop();
         card_label_barcodes_.pop();
         if (card_widgets_.empty()) {
-            is_end = true;
+            is_batch_end = true;
         }
     } else {
         error = tr("卡片条码与标签条码不匹配, 请核对!");
@@ -755,15 +761,15 @@ void MainWindow::compareCard() {
         printf("log write error\n");
     }
 
-    if (card_label_barcodes_.empty()) {
-        if (is_end) box_data_dao->scanned(BoxDataDao::Type::CARD, card_info->box_start_or_end_barcode.toStdString());
+    if (is_box_end) {
+        if (is_batch_end) box_data_dao->scanned(BoxDataDao::Type::CARD, card_info->box_start_or_end_barcode.toStdString());
 
         refreshCardTable(order_dao_->currentOrder()->name, ui_->card_datas_status_comb_box->currentIndex() - 1);
         scroll_to_value(ui_->card_table, ui_->card_box_start_or_end_line->text(), false);
 
         ui_->card_box_start_or_end_line->clear();
-        ui_->card_line->clear();
         ui_->card_label_line->clear();
+        ui_->card_line->clear();
 
         ui_->card_box_start_or_end_line->setEnabled(true);
         ui_->card_label_line->setEnabled(false);
@@ -771,9 +777,18 @@ void MainWindow::compareCard() {
 
         ui_->card_box_start_or_end_line->setFocus();
     } else {
-        ui_->card_line->clear();
-        ui_->card_label_line->clear();
-        ui_->card_line->setFocus();
+        if (is_success) {
+            ui_->card_label_line->clear();
+            ui_->card_line->clear();
+
+            ui_->card_label_line->setEnabled(true);
+            ui_->card_line->setEnabled(false);
+
+            ui_->card_label_line->setFocus();
+        } else {
+            ui_->card_line->clear();
+            ui_->card_line->setFocus();
+        }
     }
 }
 
