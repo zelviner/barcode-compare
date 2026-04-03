@@ -1356,7 +1356,7 @@ void MainWindow::on_order_group_box_fileDropped(const QString &path) {
 
 void MainWindow::init_window() {
     // 设置窗口标题
-    setWindowTitle(tr("条码比对系统"));
+    setWindowTitle(tr("条码比对系统 v3.1.4"));
 }
 
 void MainWindow::init_ui() {

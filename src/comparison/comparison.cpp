@@ -21,17 +21,18 @@ int Comparison::box(const std::shared_ptr<BoxInfo> &box_info) {
         return 1; // 内盒起始或结束条码不在该订单范围内
     }
 
-    QString box_start_or_end_barcode = trim_box_barcode(box_info->box_start_or_end_barcode);
-    QString card_start_barcode       = trim_card_barcode(box_info->card_start_barcode);
-    QString card_end_barcode         = trim_card_barcode(box_info->card_end_barcode);
+    QString box_start_barcode  = trim_box_barcode(QString::fromStdString(box_data->start_number));
+    QString box_end_barcode    = trim_box_barcode(QString::fromStdString(box_data->end_number));
+    QString card_start_barcode = trim_card_barcode(box_info->card_start_barcode);
+    QString card_end_barcode   = trim_card_barcode(box_info->card_end_barcode);
 
-    if (QString::fromStdString(box_data->start_number) != card_start_barcode) {
+    if (box_start_barcode != card_start_barcode) {
         log_error("Box start number not match: %s vs %s", box_data->start_number.c_str(), card_start_barcode.toStdString().c_str());
         return 2; // 不是正确的首卡条码
     }
 
     // 判断尾卡条码是否等于内盒结束条码
-    if (QString::fromStdString(box_data->end_number) != card_end_barcode) {
+    if (box_end_barcode != card_end_barcode) {
         log_error("Box end number not match: %s vs %s", box_data->end_number.c_str(), card_end_barcode.toStdString().c_str());
         return 3; // 不是正确的尾卡条码
     }
@@ -46,14 +47,15 @@ int Comparison::carton(const std::shared_ptr<CartonInfo> &carton_info, int &box_
         return 1; // 外箱起始或结束条码不在该订单范围内
     }
 
-    QString carton_start_or_end_barcode = trim_carton_barcode(carton_info->carton_start_or_end_barcode);
-    QString target_barcode              = trim_box_barcode(carton_info->target_barcode);
+    QString target_barcode = trim_box_barcode(carton_info->target_barcode);
 
     // 判断目标条码是否在该外箱范围内
     bool found     = false;
     auto box_datas = box_data_dao_->all(carton_data->start_number, carton_data->end_number);
     for (auto box_data : box_datas) {
-        if (QString::fromStdString(box_data->start_number) == target_barcode || QString::fromStdString(box_data->end_number) == target_barcode) {
+        QString box_start_barcode = trim_box_barcode(QString::fromStdString(box_data->start_number));
+        QString box_end_barcode   = trim_box_barcode(QString::fromStdString(box_data->end_number));
+        if (box_start_barcode == target_barcode || box_end_barcode == target_barcode) {
             found         = true;
             box_widget_id = box_data->id;
             break;
