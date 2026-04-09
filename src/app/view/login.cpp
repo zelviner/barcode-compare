@@ -37,7 +37,7 @@ Login::~Login() { delete ui_; }
 
 void Login::init_window() {
     // 设置窗口标题
-    setWindowTitle(tr("条码比对系统 v3.1.4"));
+    setWindowTitle(tr("条码比对系统 v3.1.5"));
 }
 
 void Login::init_dir() {
