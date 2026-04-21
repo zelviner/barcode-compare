@@ -1137,8 +1137,8 @@ void MainWindow::refreshOrderTab() {
     ui_->carton_file_path_line->clear();
     ui_->card_file_path_line->clear();
 
-    // 用户管理员 及 生产
-    if (user_dao_->currentUser()->role_id == 1 || user_dao_->currentUser()->role_id == 2) {
+    // 用户管理员
+    if (user_dao_->currentUser()->role_id == 1) {
         ui_->order_name_line->setEnabled(false);
         ui_->box_start_spin_box->setEnabled(false);
         ui_->box_end_spin_box->setEnabled(false);
