@@ -41,10 +41,15 @@ int Comparison::box(const std::shared_ptr<BoxInfo> &box_info) {
 }
 
 int Comparison::carton(const std::shared_ptr<CartonInfo> &carton_info, int &box_widget_id) {
-    std::shared_ptr<CartonData> carton_data = carton_data_dao_->get(carton_info->carton_start_or_end_barcode.toStdString());
+    std::shared_ptr<CartonData> carton_data = carton_data_dao_->get(carton_info->carton_start_barcode.toStdString());
     if (carton_data == nullptr) {
-        log_error("Carton start or end barcode not in order: %s", carton_info->carton_start_or_end_barcode.toStdString().c_str());
-        return 1; // 外箱起始或结束条码不在该订单范围内
+        log_error("Carton start barcode not in order: %s", carton_info->carton_start_barcode.toStdString().c_str());
+        return 1; // 外箱起始条码不在该订单范围内
+    }
+
+    if (carton_info->carton_end_barcode.toStdString() != carton_data->end_barcode) {
+        log_error("Carton end number not match: %s vs %s", carton_data->end_barcode.c_str(), carton_info->carton_end_barcode.toStdString().c_str());
+        return 2; // 外箱结束条码不正确
     }
 
     QString target_barcode = trim_box_barcode(carton_info->target_barcode);
@@ -63,7 +68,7 @@ int Comparison::carton(const std::shared_ptr<CartonInfo> &carton_info, int &box_
     }
     if (!found) {
         log_error("Target barcode not in carton %s: %s", carton_data->carton_number.c_str(), target_barcode.toStdString().c_str());
-        return 2; // 目标条码不在该外箱范围内
+        return 3; // 目标条码不在该外箱范围内
     }
 
     return 0;

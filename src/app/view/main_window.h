@@ -43,6 +43,7 @@ class MainWindow : public QMainWindow {
     void cartonSelectOrder();                                                                       // 外箱选择订单
     void showSelectedCarton();                                                                      // 显示选中外箱
     void selectCartonDatasStatus();                                                                 // 选择外箱数据状态
+    void toCartonEndBarcode();                                                                      // 获取尾箱条码
     void toTargetBarcode();                                                                         // 获取目标条码
     void compareCarton();                                                                           // 比对外箱
     void refreshCartonTab();                                                                        // 刷新外箱比对 Tab

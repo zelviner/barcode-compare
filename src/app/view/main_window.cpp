@@ -274,10 +274,11 @@ void MainWindow::cartonSelectOrder() {
     ui_->carton_check_format_label->setText(QString::fromStdString(order->check_format));
 
     ui_->carton_datas_status_comb_box->setEnabled(true);
-    ui_->carton_start_or_end_line->setEnabled(true);
+    ui_->carton_start_line->setEnabled(true);
+    ui_->carton_end_line->setEnabled(true);
     ui_->target_line->setEnabled(true);
 
-    ui_->carton_start_or_end_line->setFocus();
+    ui_->carton_start_line->setFocus();
 }
 
 void MainWindow::showSelectedCarton() {
@@ -321,16 +322,22 @@ void MainWindow::selectCartonDatasStatus() {
     refreshCartonTable(order_dao_->currentOrder()->name, ui_->carton_datas_status_comb_box->currentIndex() - 1);
 }
 
+void MainWindow::toCartonEndBarcode() {
+    ui_->carton_start_line->setEnabled(false);
+    ui_->carton_end_line->setFocus();
+}
+
 void MainWindow::toTargetBarcode() {
-    ui_->carton_start_or_end_line->setEnabled(false);
+    ui_->carton_end_line->setEnabled(false);
     ui_->target_line->setFocus();
-    scroll_to_value(ui_->carton_table, ui_->carton_start_or_end_line->text());
+    scroll_to_value(ui_->carton_table, ui_->carton_start_line->text());
 }
 
 void MainWindow::compareCarton() {
-    std::shared_ptr<CartonInfo> carton_info  = std::make_shared<CartonInfo>();
-    carton_info->carton_start_or_end_barcode = ui_->carton_start_or_end_line->text();
-    carton_info->target_barcode              = ui_->target_line->text();
+    std::shared_ptr<CartonInfo> carton_info = std::make_shared<CartonInfo>();
+    carton_info->carton_start_barcode       = ui_->carton_start_line->text();
+    carton_info->carton_end_barcode         = ui_->carton_end_line->text();
+    carton_info->target_barcode             = ui_->target_line->text();
 
     QString error, log_msg;
     bool    is_end          = false;
@@ -343,13 +350,14 @@ void MainWindow::compareCarton() {
     // Check if the target barcodes are sequence.
     if (box_widgets_.front()->id() != box_widget_id) {
         if (result == 0) {
-            result = 3;
+            result = 4;
         }
     }
 
     if (result == 0) {
-        log_msg = QString::asprintf("用户[%s] 外箱起始或结束条码[%s] 内盒起始或结束条码[%s], 扫描成功", user_dao_->currentUser()->name.c_str(),
-                                    carton_info->carton_start_or_end_barcode.toStdString().c_str(), carton_info->target_barcode.toStdString().c_str());
+        log_msg = QString::asprintf("用户[%s] 外箱起始[%s] 结束条码[%s] 内盒起始或结束条码[%s], 扫描成功", user_dao_->currentUser()->name.c_str(),
+                                    carton_info->carton_start_barcode.toStdString().c_str(), carton_info->carton_end_barcode.toStdString().c_str(),
+                                    carton_info->target_barcode.toStdString().c_str());
         box_widgets_.front()->scanned();
 
         box_widgets_.pop();
@@ -367,19 +375,25 @@ void MainWindow::compareCarton() {
         }
 
         case 2: {
-            error = tr("内盒条码不在该外箱范围内, 请核对!");
+            error = tr("外箱结束条码不正确, 请核对!");
             break;
         }
 
         case 3: {
+            error = tr("内盒条码不在该外箱范围内, 请核对!");
+            break;
+        }
+
+        case 4: {
             error = tr("内盒顺序错误, 请核对!");
             break;
         }
         }
 
-        log_msg = QString::asprintf("用户[%s] 外箱起始或结束条码[%s] 内盒起始或结束条码[%s], 扫描失败，失败原因[%s]",
-                                    user_dao_->currentUser()->description.c_str(), carton_info->carton_start_or_end_barcode.toStdString().c_str(),
-                                    carton_info->target_barcode.toStdString().c_str(), error.toStdString().c_str());
+        log_msg = QString::asprintf("用户[%s] 外箱起始[%s] 结束条码[%s] 内盒起始或结束条码[%s], 扫描失败，失败原因[%s]",
+                                    user_dao_->currentUser()->description.c_str(), carton_info->carton_start_barcode.toStdString().c_str(),
+                                    carton_info->carton_end_barcode.toStdString().c_str(), carton_info->target_barcode.toStdString().c_str(),
+                                    error.toStdString().c_str());
 
         QMessageBox::warning(this, tr("提示"), tr("比对失败: ") + error);
     }
@@ -390,16 +404,18 @@ void MainWindow::compareCarton() {
     }
 
     if (is_end) {
-        carton_data_dao->scanned(carton_info->carton_start_or_end_barcode.toStdString(), user_dao_->currentUser()->description);
+        carton_data_dao->scanned(carton_info->carton_start_barcode.toStdString(), user_dao_->currentUser()->description);
         refreshCartonTable(order_dao_->currentOrder()->name, ui_->carton_datas_status_comb_box->currentIndex() - 1);
-        scroll_to_value(ui_->carton_table, ui_->carton_start_or_end_line->text(), false);
+        scroll_to_value(ui_->carton_table, ui_->carton_start_line->text(), false);
 
-        ui_->carton_start_or_end_line->clear();
+        ui_->carton_start_line->clear();
+        ui_->carton_end_line->clear();
         ui_->target_line->clear();
 
-        ui_->carton_start_or_end_line->setEnabled(true);
+        ui_->carton_start_line->setEnabled(true);
+        ui_->carton_end_line->setEnabled(true);
 
-        ui_->carton_start_or_end_line->setFocus();
+        ui_->carton_start_line->setFocus();
     } else {
         ui_->target_line->clear();
         ui_->target_line->setFocus();
@@ -410,7 +426,8 @@ void MainWindow::refreshCartonTab() {
     ui_->carton_table->clearContents();
     ui_->carton_order_name_combo->clear();
     ui_->carton_check_format_label->clear();
-    ui_->carton_start_or_end_line->clear();
+    ui_->carton_start_line->clear();
+    ui_->carton_end_line->clear();
     ui_->carton_table->setRowCount(0);
     ui_->carton_datas_status_comb_box->setCurrentIndex(0);
 
@@ -419,11 +436,13 @@ void MainWindow::refreshCartonTab() {
         delete ui_->box_compare_group_box->layout();
     }
 
-    ui_->carton_start_or_end_line->clearFocus();
+    ui_->carton_start_line->clearFocus();
+    ui_->carton_end_line->clearFocus();
     ui_->carton_order_name_combo->clearFocus();
 
     ui_->carton_datas_status_comb_box->setEnabled(false);
-    ui_->carton_start_or_end_line->setEnabled(false);
+    ui_->carton_start_line->setEnabled(false);
+    ui_->carton_end_line->setEnabled(false);
     ui_->target_line->setEnabled(false);
 
     // 设置订单号下拉框内容
@@ -437,7 +456,8 @@ void MainWindow::refreshCartonTab() {
     // 用户管理员 及 品质
     if (user_dao_->currentUser()->role_id == 1 || user_dao_->currentUser()->role_id == 3) {
         ui_->carton_order_name_combo->setEnabled(false);
-        ui_->carton_start_or_end_line->setEnabled(false);
+        ui_->carton_start_line->setEnabled(false);
+        ui_->carton_end_line->setEnabled(false);
         ui_->target_line->setEnabled(false);
     }
 }
@@ -2012,7 +2032,8 @@ void MainWindow::init_signals_slots() {
     connect(ui_->carton_order_name_combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::cartonSelectOrder);
     connect(ui_->carton_table, &QTableWidget::itemSelectionChanged, this, &MainWindow::showSelectedCarton);
     connect(ui_->carton_datas_status_comb_box, &QComboBox::currentTextChanged, this, &MainWindow::selectCartonDatasStatus);
-    connect(ui_->carton_start_or_end_line, &QLineEdit::returnPressed, this, &MainWindow::toTargetBarcode);
+    connect(ui_->carton_start_line, &QLineEdit::returnPressed, this, &MainWindow::toCartonEndBarcode);
+    connect(ui_->carton_end_line, &QLineEdit::returnPressed, this, &MainWindow::toTargetBarcode);
     connect(ui_->target_line, &QLineEdit::returnPressed, this, &MainWindow::compareCarton);
 
     // 卡片比对 Tab
