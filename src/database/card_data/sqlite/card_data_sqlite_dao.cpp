@@ -1,4 +1,5 @@
 #include "card_data_sqlite_dao.h"
+#include "utils/utils.h"
 
 #include <SQLiteCpp/Statement.h>
 #include <SQLiteCpp/Transaction.h>
@@ -65,6 +66,8 @@ std::vector<std::shared_ptr<CardData>> CardDataSqliteDao::all(const int &status)
         card_data->iccid_barcode            = all.getColumn("iccid_barcode").getString();
         card_data->imsi_barcode             = all.getColumn("imsi_barcode").getString();
         card_data->status                   = all.getColumn("status");
+        card_data->scanned_by               = all.getColumn("scanned_by").getString();
+        card_data->scanned_at               = all.getColumn("scanned_at").getString();
 
         card_datas.push_back(card_data);
     }
@@ -89,6 +92,8 @@ std::vector<std::shared_ptr<CardData>> CardDataSqliteDao::all(const std::string 
         card_data->iccid_barcode            = all.getColumn("iccid_barcode").getString();
         card_data->imsi_barcode             = all.getColumn("imsi_barcode").getString();
         card_data->status                   = all.getColumn("status");
+        card_data->scanned_by               = all.getColumn("scanned_by").getString();
+        card_data->scanned_at               = all.getColumn("scanned_at").getString();
 
         card_datas.push_back(card_data);
     }
@@ -96,9 +101,11 @@ std::vector<std::shared_ptr<CardData>> CardDataSqliteDao::all(const std::string 
     return card_datas;
 }
 
-bool CardDataSqliteDao::scanned(const std::string &start_barcode) {
-    auto card_data    = get(start_barcode);
-    card_data->status = 1;
+bool CardDataSqliteDao::scanned(const std::string &start_barcode, const std::string &scanned_by) {
+    auto card_data        = get(start_barcode);
+    card_data->status     = 1;
+    card_data->scanned_by = scanned_by;
+    card_data->scanned_at = utils::Utils::now();
     return update(card_data->id, card_data);
 }
 
@@ -126,6 +133,8 @@ std::shared_ptr<CardData> CardDataSqliteDao::get(const std::string &start_barcod
         card_data->iccid_barcode            = get.getColumn("iccid_barcode").getString();
         card_data->imsi_barcode             = get.getColumn("imsi_barcode").getString();
         card_data->status                   = get.getColumn("status");
+        card_data->scanned_by               = get.getColumn("scanned_by").getString();
+        card_data->scanned_at               = get.getColumn("scanned_at").getString();
 
         return card_data;
     }
@@ -136,7 +145,8 @@ std::shared_ptr<CardData> CardDataSqliteDao::get(const std::string &start_barcod
 bool CardDataSqliteDao::update(const int &id, std::shared_ptr<CardData> &card_data) {
     try {
         std::string sql = "UPDATE card_data.[" + order_name_ +
-            "] SET card_number = ?, iccid = ?, imsi = ?,  quantity = ?, iccid_barcode = ?, imsi_barcode = ?, status = ? WHERE id = ?";
+            "] SET card_number = ?, iccid = ?, imsi = ?,  quantity = ?, iccid_barcode = ?, imsi_barcode = ?, status = ?, scanned_by = ?, scanned_at = ? WHERE "
+            "id = ?";
         SQLite::Statement update(*db_, sql);
         update.bind(1, card_data->card_number);
         update.bind(2, card_data->iccid);
@@ -145,7 +155,9 @@ bool CardDataSqliteDao::update(const int &id, std::shared_ptr<CardData> &card_da
         update.bind(5, card_data->iccid_barcode);
         update.bind(6, card_data->imsi_barcode);
         update.bind(7, card_data->status);
-        update.bind(8, id);
+        update.bind(8, card_data->scanned_by);
+        update.bind(9, card_data->scanned_at);
+        update.bind(10, id);
 
         return update.exec();
     } catch (std::exception &e) {
@@ -174,7 +186,9 @@ void CardDataSqliteDao::init() {
             "quantity INTEGER,"
             "iccid_barcode TEXT,"
             "imsi_barcode TEXT,"
-            "status INTEGER DEFAULT 0)";
+            "status INTEGER DEFAULT 0,"
+            "scanned_by TEXT DEFAULT '',"
+            "scanned_at TEXT DEFAULT '')";
 
         db_->exec(sql);
     }

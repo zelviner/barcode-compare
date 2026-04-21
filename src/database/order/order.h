@@ -18,5 +18,11 @@ struct Order {
     std::string box_file_path;          // 内盒文件路径
     std::string carton_file_path;       // 外箱文件路径
     std::string card_file_path;         // 单卡文件路径
-    std::string create_time;            // 创建时间
+    std::string create_at;              // 创建时间
+    std::string box_confirm_by;         // 内盒确认人
+    std::string box_confirm_at;         // 内盒确认时间
+    std::string carton_confirm_by;      // 外箱确认人
+    std::string carton_confirm_at;      // 外箱确认时间
+    std::string card_confirm_by;        // 卡片确认人
+    std::string card_confirm_at;        // 卡片确认时间
 };

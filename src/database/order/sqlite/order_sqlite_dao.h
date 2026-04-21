@@ -31,6 +31,9 @@ class OrderSqliteDao : public OrderDao {
     std::shared_ptr<Order> get(const int &id) override;
     std::shared_ptr<Order> get(const std::string &name) override;
 
+    /// @brief QC confirm an order.
+    bool confirm(const std::string &order_name, const std::string &confirm_by, Type type) override;
+
     /// @brief Check if an order with the given name exists in the database.
     bool exists(const std::string &name) override;
 

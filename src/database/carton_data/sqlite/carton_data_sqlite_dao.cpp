@@ -1,4 +1,5 @@
 #include "carton_data_sqlite_dao.h"
+#include "utils/utils.h"
 
 #include <SQLiteCpp/Statement.h>
 #include <SQLiteCpp/Transaction.h>
@@ -67,6 +68,8 @@ std::vector<std::shared_ptr<CartonData>> CartonDataSqliteDao::all(const int &sta
         carton_data->start_barcode              = all.getColumn("start_barcode").getString();
         carton_data->end_barcode                = all.getColumn("end_barcode").getString();
         carton_data->status                     = all.getColumn("status");
+        carton_data->scanned_by                 = all.getColumn("scanned_by").getString();
+        carton_data->scanned_at                 = all.getColumn("scanned_at").getString();
 
         carton_datas.push_back(carton_data);
     }
@@ -74,9 +77,11 @@ std::vector<std::shared_ptr<CartonData>> CartonDataSqliteDao::all(const int &sta
     return carton_datas;
 }
 
-bool CartonDataSqliteDao::scanned(const std::string &start_barcode) {
-    auto carton_data    = get(start_barcode);
-    carton_data->status = 1;
+bool CartonDataSqliteDao::scanned(const std::string &start_barcode, const std::string &scanned_by) {
+    auto carton_data        = get(start_barcode);
+    carton_data->status     = 1;
+    carton_data->scanned_by = scanned_by;
+    carton_data->scanned_at = utils::Utils::now();
     return update(carton_data->id, carton_data);
 }
 
@@ -97,6 +102,8 @@ std::shared_ptr<CartonData> CartonDataSqliteDao::get(const std::string &start_or
         carton_data->start_barcode              = get.getColumn("start_barcode").getString();
         carton_data->end_barcode                = get.getColumn("end_barcode").getString();
         carton_data->status                     = get.getColumn("status");
+        carton_data->scanned_by                 = get.getColumn("scanned_by").getString();
+        carton_data->scanned_at                 = get.getColumn("scanned_at").getString();
 
         return carton_data;
     }
@@ -107,7 +114,8 @@ std::shared_ptr<CartonData> CartonDataSqliteDao::get(const std::string &start_or
 bool CartonDataSqliteDao::update(const int &id, std::shared_ptr<CartonData> &carton_data) {
     try {
         std::string sql = "UPDATE carton_data.[" + order_name_ +
-            "] SET filename = ?, carton_number = ?, start_number = ?, end_number = ?, quantity = ?, start_barcode = ?, end_barcode = ?, status = ? WHERE id = "
+            "] SET filename = ?, carton_number = ?, start_number = ?, end_number = ?, quantity = ?, start_barcode = ?, end_barcode = ?, status = ?, scanned_by "
+            "= ?, scanned_at = ? WHERE id = "
             "?";
         SQLite::Statement update(*db_, sql);
         update.bind(1, carton_data->filename);
@@ -118,7 +126,9 @@ bool CartonDataSqliteDao::update(const int &id, std::shared_ptr<CartonData> &car
         update.bind(6, carton_data->start_barcode);
         update.bind(7, carton_data->end_barcode);
         update.bind(8, carton_data->status);
-        update.bind(9, id);
+        update.bind(9, carton_data->scanned_by);
+        update.bind(10, carton_data->scanned_at);
+        update.bind(11, id);
 
         return update.exec();
     } catch (std::exception &e) {
@@ -148,7 +158,9 @@ void CartonDataSqliteDao::init() {
             "quantity INTEGER,"
             "start_barcode TEXT,"
             "end_barcode TEXT,"
-            "status INTEGER DEFAULT 0)";
+            "status INTEGER DEFAULT 0,"
+            "scanned_by TEXT DEFAULT '',"
+            "scanned_at TEXT DEFAULT '')";
 
         db_->exec(sql);
     }

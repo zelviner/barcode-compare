@@ -5,6 +5,7 @@
 #include "database/format/format_dao_factory.h"
 #include "importer/importer_factory.hpp"
 #include "orders.hpp"
+#include "utils/utils.h"
 
 #include <cstddef>
 #include <memory>
@@ -111,7 +112,7 @@ bool OrderMysqlDao::add(const std::shared_ptr<Order> &order) {
     orders["box_scanned_num"]        = order->box_scanned_num;
     orders["carton_scanned_num"]     = order->carton_scanned_num;
     orders["mode_id"]                = order->mode_id;
-    orders["create_time"]            = order->create_time;
+    orders["create_at"]              = order->create_at;
 
     return orders.save();
 }
@@ -161,7 +162,13 @@ bool OrderMysqlDao::update(const int &id, const std::shared_ptr<Order> &order) {
         one["box_scanned_num"]        = order->box_scanned_num;
         one["carton_scanned_num"]     = order->carton_scanned_num;
         one["mode_id"]                = order->mode_id;
-        one["create_time"]            = order->create_time;
+        one["create_at"]              = order->create_at;
+        one["box_confirm_by"]         = order->box_confirm_by;
+        one["box_confirm_at"]         = order->box_confirm_at;
+        one["carton_confirm_by"]      = order->carton_confirm_by;
+        one["carton_confirm_at"]      = order->carton_confirm_at;
+        one["card_confirm_by"]        = order->card_confirm_by;
+        one["card_confirm_at"]        = order->card_confirm_at;
 
         return one.save();
     }
@@ -186,7 +193,13 @@ std::vector<std::shared_ptr<Order>> OrderMysqlDao::all() {
         order->card_end_check_num     = one("card_end_check_num").asInt();
         order->box_scanned_num        = one("box_scanned_num").asInt();
         order->mode_id                = one("mode_id").asInt();
-        order->create_time            = one("create_time").asString();
+        order->create_at              = one("create_at").asString();
+        order->box_confirm_by         = one("box_confirm_by").asString();
+        order->box_confirm_at         = one("box_confirm_at").asString();
+        order->carton_confirm_by      = one("carton_confirm_by").asString();
+        order->carton_confirm_at      = one("carton_confirm_at").asString();
+        order->card_confirm_by        = one("card_confirm_by").asString();
+        order->card_confirm_at        = one("card_confirm_at").asString();
 
         orders.push_back(order);
     }
@@ -209,7 +222,13 @@ std::shared_ptr<Order> OrderMysqlDao::get(const int &id) {
     order->card_end_check_num     = one("card_end_check_num").asInt();
     order->box_scanned_num        = one("box_scanned_num").asInt();
     order->mode_id                = one("mode_id").asInt();
-    order->create_time            = one("create_time").asString();
+    order->create_at              = one("create_at").asString();
+    order->box_confirm_by         = one("box_confirm_by").asString();
+    order->box_confirm_at         = one("box_confirm_at").asString();
+    order->carton_confirm_by      = one("carton_confirm_by").asString();
+    order->carton_confirm_at      = one("carton_confirm_at").asString();
+    order->card_confirm_by        = one("card_confirm_by").asString();
+    order->card_confirm_at        = one("card_confirm_at").asString();
 
     return order;
 }
@@ -229,9 +248,43 @@ std::shared_ptr<Order> OrderMysqlDao::get(const std::string &name) {
     order->card_end_check_num     = one("card_end_check_num").asInt();
     order->box_scanned_num        = one("box_scanned_num").asInt();
     order->mode_id                = one("mode_id").asInt();
-    order->create_time            = one("create_time").asString();
+    order->create_at              = one("create_at").asString();
+    order->box_confirm_by         = one("box_confirm_by").asString();
+    order->box_confirm_at         = one("box_confirm_at").asString();
+    order->carton_confirm_by      = one("carton_confirm_by").asString();
+    order->carton_confirm_at      = one("carton_confirm_at").asString();
+    order->card_confirm_by        = one("card_confirm_by").asString();
+    order->card_confirm_at        = one("card_confirm_at").asString();
 
     return order;
+}
+
+bool OrderMysqlDao::confirm(const std::string &order_name, const std::string &confirm_by, Type type) {
+    auto order = get(order_name);
+    auto now   = utils::Utils::now();
+
+    switch (type) {
+    case CARD:
+        order->card_confirm_by = confirm_by;
+        order->card_confirm_at = now;
+        break;
+
+    case BOX:
+        order->box_confirm_by = confirm_by;
+        order->box_confirm_at = now;
+        break;
+
+    case CARTON:
+        order->carton_confirm_by = confirm_by;
+        order->carton_confirm_at = now;
+        break;
+
+    default:
+        return false;
+        break;
+    }
+
+    return update(order->id, order);
 }
 
 bool OrderMysqlDao::exists(const std::string &name) {
@@ -268,7 +321,13 @@ void OrderMysqlDao::init() {
                           "box_scanned_num INT NOT NULL,"
                           "carton_scanned_num INT NOT NULL,"
                           "mode_id INT NOT NULL,"
-                          "create_time VARCHAR(255) NOT NULL"
+                          "create_at VARCHAR(255) NOT NULL,"
+                          "box_confirm_by VARCHAR(255) NOT NULL,"
+                          "box_confirm_at VARCHAR(255) NOT NULL,"
+                          "carton_confirm_by VARCHAR(255) NOT NULL,"
+                          "carton_confirm_at VARCHAR(255) NOT NULL,"
+                          "card_confirm_by VARCHAR(255) NOT NULL,"
+                          "card_confirm_at VARCHAR(255) NOT NULL"
                           ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
         db_->execute(sql);
     }

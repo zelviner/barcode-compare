@@ -1,5 +1,6 @@
 #include "carton_data_mysql_dao.h"
 #include "carton_tables.hpp"
+#include "utils/utils.h"
 
 #include <memory>
 #include <qsettings>
@@ -61,6 +62,8 @@ std::vector<std::shared_ptr<CartonData>> CartonDataMysqlDao::all(const int &stat
         carton_data->start_barcode = one("start_barcode").asString();
         carton_data->end_barcode   = one("end_barcode").asString();
         carton_data->status        = one("status").asInt();
+        carton_data->scanned_by    = one("scanned_by").asString();
+        carton_data->scanned_at    = one("scanned_at").asString();
 
         carton_datas.push_back(carton_data);
     }
@@ -68,9 +71,11 @@ std::vector<std::shared_ptr<CartonData>> CartonDataMysqlDao::all(const int &stat
     return carton_datas;
 }
 
-bool CartonDataMysqlDao::scanned(const std::string &start_barcode) {
-    auto carton_data    = get(start_barcode);
-    carton_data->status = 1;
+bool CartonDataMysqlDao::scanned(const std::string &start_barcode, const std::string &scanned_by) {
+    auto carton_data        = get(start_barcode);
+    carton_data->status     = 1;
+    carton_data->scanned_by = scanned_by;
+    carton_data->scanned_at = utils::Utils::now();
     return update(carton_data->id, carton_data);
 }
 
@@ -93,6 +98,8 @@ std::shared_ptr<CartonData> CartonDataMysqlDao::get(const std::string &start_or_
     carton_data->start_barcode = carton_tables[0]("start_barcode").asString();
     carton_data->end_barcode   = carton_tables[0]("end_barcode").asString();
     carton_data->status        = carton_tables[0]("status").asInt();
+    carton_data->scanned_by    = carton_tables[0]("scanned_by").asString();
+    carton_data->scanned_at    = carton_tables[0]("scanned_at").asString();
 
     return carton_data;
 }
@@ -109,6 +116,8 @@ bool CartonDataMysqlDao::update(const int &id, std::shared_ptr<CartonData> &cart
             {"start_barcode", carton_data->start_barcode},
             {"end_barcode", carton_data->end_barcode},
             {"status", carton_data->status},
+            {"scanned_by", carton_data->scanned_by},
+            {"scanned_at", carton_data->scanned_at},
         });
 
     return true;
@@ -148,7 +157,9 @@ void CartonDataMysqlDao::init() {
             "quantity INT NOT NULL,"
             "start_barcode VARCHAR(255) NOT NULL,"
             "end_barcode VARCHAR(255) NOT NULL,"
-            "status INT NOT NULL DEFAULT 0"
+            "status INT NOT NULL DEFAULT 0,"
+            "scanned_by VARCHAR(255) DEFAULT NULL,"
+            "scanned_at VARCHAR(255) DEFAULT NULL"
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
 
         db_->execute(sql);

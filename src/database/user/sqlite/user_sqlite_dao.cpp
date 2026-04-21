@@ -20,11 +20,12 @@ bool UserSqliteDao::login(const std::string &entered_name, const std::string &en
 }
 
 bool UserSqliteDao::add(const std::shared_ptr<User> &user) {
-    std::string       sql = "INSERT INTO users(name, password, role_id) VALUES(?,?,?)";
+    std::string       sql = "INSERT INTO users(name,description, password, role_id) VALUES(?,?,?,?)";
     SQLite::Statement insert(*db_, sql);
     insert.bind(1, user->name);
-    insert.bind(2, user->password);
-    insert.bind(3, user->role_id);
+    insert.bind(2, user->description);
+    insert.bind(3, user->password);
+    insert.bind(4, user->role_id);
 
     return insert.exec();
 }
@@ -38,6 +39,7 @@ std::vector<std::shared_ptr<User>> UserSqliteDao::all() {
         std::shared_ptr<User> user = std::make_shared<User>();
         user->id                   = query.getColumn("id");
         user->name                 = query.getColumn("name").getString();
+        user->description          = query.getColumn("description").getString();
         user->password             = query.getColumn("password").getString();
         user->role_id              = query.getColumn("role_id");
 
@@ -63,12 +65,13 @@ bool UserSqliteDao::clear() {
 }
 
 bool UserSqliteDao::update(const int &id, const std::shared_ptr<User> &user) {
-    std::string       sql = "UPDATE users SET name = ?, password = ?, role_id = ? WHERE id = ?";
+    std::string       sql = "UPDATE users SET name = ?, description = ?, password = ?, role_id = ? WHERE id = ?";
     SQLite::Statement update(*db_, sql);
     update.bind(1, user->name);
-    update.bind(2, user->password);
-    update.bind(3, user->role_id);
-    update.bind(4, id);
+    update.bind(2, user->description);
+    update.bind(3, user->password);
+    update.bind(4, user->role_id);
+    update.bind(5, id);
 
     return update.exec();
 }
@@ -84,6 +87,7 @@ std::shared_ptr<User> UserSqliteDao::get(const int &id) {
         std::shared_ptr<User> user = std::make_shared<User>();
         user->id                   = query.getColumn("id");
         user->name                 = query.getColumn("name").getString();
+        user->description          = query.getColumn("description").getString();
         user->password             = query.getColumn("password").getString();
         user->role_id              = query.getColumn("role_id");
 
@@ -113,12 +117,13 @@ void UserSqliteDao::init() {
         sql = "CREATE TABLE IF NOT EXISTS users ("
               "id integer PRIMARY KEY AUTOINCREMENT,"
               "name TEXT NOT NULL,"
+              "description TEXT NOT NULL,"
               "password TEXT NOT NULL,"
               "role_id integer NOT NULL);";
         db_->exec(sql);
 
         // initialize user data
-        std::shared_ptr<User> admin = std::make_shared<User>(User{1, "admin", "iflogic2025", 1});
+        std::shared_ptr<User> admin = std::make_shared<User>(User{1, "admin", "管理员", "iflogic2025", 1});
         add(admin);
     }
 }

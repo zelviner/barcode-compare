@@ -4,6 +4,7 @@
 #include "database/carton_data/carton_data_dao_factory.h"
 #include "database/format/format_dao_factory.h"
 #include "importer/importer_factory.hpp"
+#include "utils/utils.h"
 
 #include <SQLiteCpp/Database.h>
 #include <SQLiteCpp/Statement.h>
@@ -101,7 +102,7 @@ bool OrderSqliteDao::add(const std::shared_ptr<Order> &order) {
     }
 
     std::string       sql = "INSERT INTO orders (name, check_format, carton_start_check_num, carton_end_check_num, box_start_check_num, "
-                            "box_end_check_num, card_start_check_num, card_end_check_num, box_scanned_num, carton_scanned_num, mode_id, create_time)"
+                            "box_end_check_num, card_start_check_num, card_end_check_num, box_scanned_num, carton_scanned_num, mode_id, create_at)"
                             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
     SQLite::Statement add(*db_, sql);
     add.bind(1, order->name);
@@ -115,7 +116,7 @@ bool OrderSqliteDao::add(const std::shared_ptr<Order> &order) {
     add.bind(9, order->box_scanned_num);
     add.bind(10, order->carton_scanned_num);
     add.bind(11, order->mode_id);
-    add.bind(12, order->create_time);
+    add.bind(12, order->create_at);
 
     return add.exec();
 }
@@ -153,25 +154,38 @@ bool OrderSqliteDao::clear() {
 }
 
 bool OrderSqliteDao::update(const int &id, const std::shared_ptr<Order> &order) {
-    std::string       sql = "UPDATE orders SET name = ?, check_format = ?, carton_start_check_num = ?, "
-                            "carton_end_check_num = ?, box_start_check_num = ?, box_end_check_num = ?, card_start_check_num = ?, "
-                            "card_end_check_num = ?, box_scanned_num = ?, carton_scanned_num = ?, mode_id = ?, create_time = ? WHERE id = ?";
-    SQLite::Statement update(*db_, sql);
-    update.bind(1, order->name);
-    update.bind(2, order->check_format);
-    update.bind(3, order->carton_start_check_num);
-    update.bind(4, order->carton_end_check_num);
-    update.bind(5, order->box_start_check_num);
-    update.bind(6, order->box_end_check_num);
-    update.bind(7, order->card_start_check_num);
-    update.bind(8, order->card_end_check_num);
-    update.bind(9, order->box_scanned_num);
-    update.bind(10, order->carton_scanned_num);
-    update.bind(11, order->mode_id);
-    update.bind(12, order->create_time);
-    update.bind(13, id);
+    try {
+        std::string sql =
+            "UPDATE orders SET name = ?, check_format = ?, carton_start_check_num = ?, "
+            "carton_end_check_num = ?, box_start_check_num = ?, box_end_check_num = ?, card_start_check_num = ?, "
+            "card_end_check_num = ?, box_scanned_num = ?, carton_scanned_num = ?, mode_id = ?, create_at = ?, box_confirm_by = ?, box_confirm_at = ?, "
+            "carton_confirm_by = ?, carton_confirm_at = ?, card_confirm_by = ?, card_confirm_at = ? WHERE id = ?";
+        SQLite::Statement update(*db_, sql);
+        update.bind(1, order->name);
+        update.bind(2, order->check_format);
+        update.bind(3, order->carton_start_check_num);
+        update.bind(4, order->carton_end_check_num);
+        update.bind(5, order->box_start_check_num);
+        update.bind(6, order->box_end_check_num);
+        update.bind(7, order->card_start_check_num);
+        update.bind(8, order->card_end_check_num);
+        update.bind(9, order->box_scanned_num);
+        update.bind(10, order->carton_scanned_num);
+        update.bind(11, order->mode_id);
+        update.bind(12, order->create_at);
+        update.bind(13, order->box_confirm_by);
+        update.bind(14, order->box_confirm_at);
+        update.bind(15, order->carton_confirm_by);
+        update.bind(16, order->carton_confirm_at);
+        update.bind(17, order->card_confirm_by);
+        update.bind(18, order->card_confirm_at);
+        update.bind(19, id);
 
-    return update.exec();
+        return update.exec();
+    } catch (const std::exception &e) {
+        printf("sql error: %s\n", e.what());
+        return false;
+    }
 }
 
 std::vector<std::shared_ptr<Order>> OrderSqliteDao::all() {
@@ -193,7 +207,13 @@ std::vector<std::shared_ptr<Order>> OrderSqliteDao::all() {
         order->box_scanned_num        = all.getColumn("box_scanned_num");
         order->carton_scanned_num     = all.getColumn("carton_scanned_num");
         order->mode_id                = all.getColumn("mode_id");
-        order->create_time            = all.getColumn("create_time").getString();
+        order->create_at              = all.getColumn("create_at").getString();
+        order->box_confirm_by         = all.getColumn("box_confirm_by").getString();
+        order->box_confirm_at         = all.getColumn("box_confirm_at").getString();
+        order->carton_confirm_by      = all.getColumn("carton_confirm_by").getString();
+        order->carton_confirm_at      = all.getColumn("carton_confirm_at").getString();
+        order->card_confirm_by        = all.getColumn("card_confirm_by").getString();
+        order->card_confirm_at        = all.getColumn("card_confirm_at").getString();
 
         orders.push_back(order);
     }
@@ -220,7 +240,13 @@ std::shared_ptr<Order> OrderSqliteDao::get(const int &id) {
         order->box_scanned_num        = get.getColumn("box_scanned_num");
         order->carton_scanned_num     = get.getColumn("carton_scanned_num");
         order->mode_id                = get.getColumn("mode_id");
-        order->create_time            = get.getColumn("create_time").getString();
+        order->create_at              = get.getColumn("create_at").getString();
+        order->box_confirm_by         = get.getColumn("box_confirm_by").getString();
+        order->box_confirm_at         = get.getColumn("box_confirm_at").getString();
+        order->carton_confirm_by      = get.getColumn("carton_confirm_by").getString();
+        order->carton_confirm_at      = get.getColumn("carton_confirm_at").getString();
+        order->card_confirm_by        = get.getColumn("card_confirm_by").getString();
+        order->card_confirm_at        = get.getColumn("card_confirm_at").getString();
 
         return order;
     }
@@ -247,12 +273,47 @@ std::shared_ptr<Order> OrderSqliteDao::get(const std::string &name) {
         order->box_scanned_num        = get.getColumn("box_scanned_num");
         order->carton_scanned_num     = get.getColumn("carton_scanned_num");
         order->mode_id                = get.getColumn("mode_id");
-        order->create_time            = get.getColumn("create_time").getString();
+        order->create_at              = get.getColumn("create_at").getString();
+        order->box_confirm_by         = get.getColumn("box_confirm_by").getString();
+        order->box_confirm_at         = get.getColumn("box_confirm_at").getString();
+        order->carton_confirm_by      = get.getColumn("carton_confirm_by").getString();
+        order->carton_confirm_at      = get.getColumn("carton_confirm_at").getString();
+        order->card_confirm_by        = get.getColumn("card_confirm_by").getString();
+        order->card_confirm_at        = get.getColumn("card_confirm_at").getString();
 
         return order;
     }
 
     return nullptr;
+}
+
+bool OrderSqliteDao::confirm(const std::string &order_name, const std::string &confirm_by, Type type) {
+    auto order = get(order_name);
+    auto now   = utils::Utils::now();
+
+    switch (type) {
+    case CARD:
+        order->card_confirm_by = confirm_by;
+        order->card_confirm_at = now;
+        break;
+
+    case BOX:
+        order->box_confirm_by = confirm_by;
+        order->box_confirm_at = now;
+        break;
+
+    case CARTON:
+        order->carton_confirm_by = confirm_by;
+        order->carton_confirm_at = now;
+        break;
+
+    default:
+        printf("1111\n");
+        return false;
+        break;
+    }
+
+    return update(order->id, order);
 }
 
 bool OrderSqliteDao::exists(const std::string &name) {
@@ -298,7 +359,13 @@ void OrderSqliteDao::init() {
               "box_scanned_num integer NOT NULL,"
               "carton_scanned_num integer NOT NULL,"
               "mode_id integer NOT NULL,"
-              "create_time TEXT NOT NULL);";
+              "create_at TEXT NOT NULL,"
+              "box_confirm_by TEXT,"
+              "box_confirm_at TEXT,"
+              "carton_confirm_by TEXT,"
+              "carton_confirm_at TEXT,"
+              "card_confirm_by TEXT,"
+              "card_confirm_at TEXT);";
         db_->exec(sql);
     }
 }

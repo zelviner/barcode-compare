@@ -1,5 +1,6 @@
 #include "box_data_mysql_dao.h"
 #include "box_tables.hpp"
+#include "utils/utils.h"
 
 #include <memory>
 #include <qsettings>
@@ -74,6 +75,8 @@ std::vector<std::shared_ptr<BoxData>> BoxDataMysqlDao::all(Type type, const int 
         box_data->status        = one("status").asInt();
         box_data->card_status   = one("card_status").asInt();
         box_data->carton_status = one("carton_status").asInt();
+        box_data->scanned_by    = one("scanned_by").asString();
+        box_data->scanned_at    = one("scanned_at").asString();
 
         box_datas.push_back(box_data);
     }
@@ -99,6 +102,8 @@ std::vector<std::shared_ptr<BoxData>> BoxDataMysqlDao::all(const std::string &st
         box_data->status        = one("status").asInt();
         box_data->card_status   = one("card_status").asInt();
         box_data->carton_status = one("carton_status").asInt();
+        box_data->scanned_by    = one("scanned_by").asString();
+        box_data->scanned_at    = one("scanned_at").asString();
 
         box_datas.push_back(box_data);
     }
@@ -106,19 +111,26 @@ std::vector<std::shared_ptr<BoxData>> BoxDataMysqlDao::all(const std::string &st
     return box_datas;
 }
 
-bool BoxDataMysqlDao::scanned(Type type, const std::string &start_barcode) {
+bool BoxDataMysqlDao::scanned(Type type, const std::string &start_barcode, const std::string &scanned_by) {
     auto box_data = get(start_barcode);
+
     switch (type) {
     case Type::CARD:
         box_data->card_status = 1;
+        box_data->scanned_by  = scanned_by;
+        box_data->scanned_at  = utils::Utils::now();
         break;
 
     case Type::BOX:
-        box_data->status = 1;
+        box_data->status     = 1;
+        box_data->scanned_by = scanned_by;
+        box_data->scanned_at = utils::Utils::now();
         break;
 
     case Type::CARTON:
         box_data->carton_status = 1;
+        box_data->scanned_by    = scanned_by;
+        box_data->scanned_at    = utils::Utils::now();
         break;
     }
 
@@ -165,6 +177,8 @@ std::shared_ptr<BoxData> BoxDataMysqlDao::get(const std::string &start_or_end_ba
     box_data->status        = box_tables[0]("status").asInt();
     box_data->card_status   = box_tables[0]("card_status").asInt();
     box_data->carton_status = box_tables[0]("carton_status").asInt();
+    box_data->scanned_by    = box_tables[0]("scanned_by").asString();
+    box_data->scanned_at    = box_tables[0]("scanned_at").asString();
 
     return box_data;
 }
@@ -183,6 +197,8 @@ bool BoxDataMysqlDao::update(const int &id, std::shared_ptr<BoxData> &box_data) 
             {"status", box_data->status},
             {"card_status", box_data->card_status},
             {"carton_status", box_data->carton_status},
+            {"scanned_by", box_data->scanned_by},
+            {"scanned_at", box_data->scanned_at},
         });
 
     return true;
@@ -226,7 +242,9 @@ void BoxDataMysqlDao::init() {
             "end_barcode VARCHAR(255) NOT NULL,"
             "status INT NOT NULL DEFAULT 0,"
             "card_status INT NOT NULL DEFAULT 0,"
-            "carton_status INT NOT NULL DEFAULT 0"
+            "carton_status INT NOT NULL DEFAULT 0,"
+            "scanned_by VARCHAR(255) DEFAULT NULL,"
+            "scanned_at VARCHAR(255) DEFAULT NULL"
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
 
         db_->execute(sql);

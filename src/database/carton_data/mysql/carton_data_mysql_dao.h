@@ -18,7 +18,7 @@ class CartonDataMysqlDao : public CartonDataDao {
     std::vector<std::shared_ptr<CartonData>> all(const int &status = -1) override;
 
     /// @brief Set the status of the carton data to 1 when it is scanned.
-    bool scanned(const std::string &start_barcode) override;
+    bool scanned(const std::string &start_barcode, const std::string &scanned_by) override;
 
     /// @brief Get carton data from the database by start or end barcode.
     std::shared_ptr<CartonData> get(const std::string &start_or_end_barcode) override;

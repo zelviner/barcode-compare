@@ -10,6 +10,13 @@
 
 class OrderDao {
   public:
+    enum Type {
+        CARD = 0,
+        BOX,
+        CARTON,
+    };
+
+  public:
     /// @brief Add a new order to the database.
     virtual bool add(const std::shared_ptr<Order> &order) = 0;
 
@@ -28,6 +35,9 @@ class OrderDao {
     /// @brief Get an order by its id or name.
     virtual std::shared_ptr<Order> get(const int &id)           = 0;
     virtual std::shared_ptr<Order> get(const std::string &name) = 0;
+
+    /// @brief QC confirm an order.
+    virtual bool confirm(const std::string &order_name, const std::string &confirm_by, Type type) = 0;
 
     /// @brief Check if an order with the given name exists in the database.
     virtual bool exists(const std::string &name) = 0;

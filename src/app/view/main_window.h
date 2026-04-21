@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app/component/auth.h"
 #include "app/component/box_widget.h"
 #include "app/component/card_widget.h"
 #include "app/component/loading.h"
@@ -80,11 +81,27 @@ class MainWindow : public QMainWindow {
     void showSelectedUser();     // 显示选中用户
     void refreshUserTab();       // 刷新用户管理 Tab
 
+    /// @brief 日志管理 Tab
+    void searchLogBtnClicked();                                                              // 搜索日志按钮点击事件
+    void qcConfirmBtnClicked();                                                              // 品质确认按钮点击事件
+    void exportExacelBtnClicked();                                                           // 导出 Excel 按钮点击事件
+    void refreshLogTab();                                                                    // 刷新日志管理 Tab
+    void refreshLogTable(const std::string &order_name, const int &type, const int &status); // 刷新日志表格
+    void refreshBoxLogTable(const std::string &order_name, const int &status);               // 刷新内盒日志表格
+    void refreshCartonLogTable(const std::string &order_name, const int &status);            // 刷新外箱日志表格
+    void refreshCardLogTable(const std::string &order_name, const int &status);              // 刷新卡片日志表格
+
   private slots:
     void addOrderSuccess();
     void addOrderFailure();
 
     void on_order_group_box_fileDropped(const QString &path);
+
+    void authSuccess(const std::string &confirm_by);
+    void authFailure(const QString &message);
+
+    void exportExcelSuccess();
+    void exportExcelFailure();
 
   private:
     /// @brief 初始化窗口
@@ -111,6 +128,9 @@ class MainWindow : public QMainWindow {
     /// @brief 初始化用户管理 Tab
     void init_user_tab();
 
+    /// @brief 初始化日志管理 Tab
+    void init_log_tab();
+
     /// @brief 初始化表格
     void init_table(QTableWidget *table, QStringList header, int col_count);
 
@@ -135,6 +155,7 @@ class MainWindow : public QMainWindow {
     Ui_MainWindow           *ui_;
     QTranslator              translator_;
     std::shared_ptr<Loading> loading_;
+    std::shared_ptr<Auth>    auth_;
     std::queue<BoxWidget *>  box_widgets_;
     std::queue<CardWidget *> card_widgets_;
     std::queue<CardWidget *> card_label_widgets_;

@@ -1,4 +1,5 @@
 #include "box_data_sqlite_dao.h"
+#include "utils/utils.h"
 
 #include <SQLiteCpp/Statement.h>
 #include <SQLiteCpp/Transaction.h>
@@ -62,27 +63,34 @@ std::vector<std::shared_ptr<BoxData>> BoxDataSqliteDao::all(Type type, const int
         }
     }
 
-    SQLite::Statement all(*db_, sql);
-    if (status != -1) {
-        all.bind(1, status);
-    }
-
     std::vector<std::shared_ptr<BoxData>> box_datas;
-    while (all.executeStep()) {
-        std::shared_ptr<BoxData> box_data = std::make_shared<BoxData>();
-        box_data->id                      = all.getColumn("id");
-        box_data->filename                = all.getColumn("filename").getString();
-        box_data->box_number              = all.getColumn("box_number").getString();
-        box_data->start_number            = all.getColumn("start_number").getString();
-        box_data->end_number              = all.getColumn("end_number").getString();
-        box_data->quantity                = all.getColumn("quantity").getInt();
-        box_data->start_barcode           = all.getColumn("start_barcode").getString();
-        box_data->end_barcode             = all.getColumn("end_barcode").getString();
-        box_data->status                  = all.getColumn("status");
-        box_data->card_status             = all.getColumn("card_status");
-        box_data->carton_status           = all.getColumn("carton_status");
+    try {
+        SQLite::Statement all(*db_, sql);
+        if (status != -1) {
+            all.bind(1, status);
+        }
 
-        box_datas.push_back(box_data);
+        while (all.executeStep()) {
+            std::shared_ptr<BoxData> box_data = std::make_shared<BoxData>();
+            box_data->id                      = all.getColumn("id");
+            box_data->filename                = all.getColumn("filename").getString();
+            box_data->box_number              = all.getColumn("box_number").getString();
+            box_data->start_number            = all.getColumn("start_number").getString();
+            box_data->end_number              = all.getColumn("end_number").getString();
+            box_data->quantity                = all.getColumn("quantity").getInt();
+            box_data->start_barcode           = all.getColumn("start_barcode").getString();
+            box_data->end_barcode             = all.getColumn("end_barcode").getString();
+            box_data->status                  = all.getColumn("status");
+            box_data->card_status             = all.getColumn("card_status");
+            box_data->carton_status           = all.getColumn("carton_status");
+            box_data->scanned_by              = all.getColumn("scanned_by").getString();
+            box_data->scanned_at              = all.getColumn("scanned_at").getString();
+
+            box_datas.push_back(box_data);
+        }
+    } catch (const std::exception &e) {
+        printf("SQL ERROR: %s\n", e.what());
+        return box_datas;
     }
 
     return box_datas;
@@ -108,6 +116,8 @@ std::vector<std::shared_ptr<BoxData>> BoxDataSqliteDao::all(const std::string &s
         box_data->status                  = all.getColumn("status");
         box_data->card_status             = all.getColumn("card_status");
         box_data->carton_status           = all.getColumn("carton_status");
+        box_data->scanned_by              = all.getColumn("scanned_by").getString();
+        box_data->scanned_at              = all.getColumn("scanned_at").getString();
 
         box_datas.push_back(box_data);
     }
@@ -115,19 +125,25 @@ std::vector<std::shared_ptr<BoxData>> BoxDataSqliteDao::all(const std::string &s
     return box_datas;
 }
 
-bool BoxDataSqliteDao::scanned(Type type, const std::string &start_barcode) {
+bool BoxDataSqliteDao::scanned(Type type, const std::string &start_barcode, const std::string &scanned_by) {
     auto box_data = get(start_barcode);
     switch (type) {
     case Type::CARD:
         box_data->card_status = 1;
+        box_data->scanned_by  = scanned_by;
+        box_data->scanned_at  = utils::Utils::now();
         break;
 
     case Type::BOX:
-        box_data->status = 1;
+        box_data->status     = 1;
+        box_data->scanned_by = scanned_by;
+        box_data->scanned_at = utils::Utils::now();
         break;
 
     case Type::CARTON:
         box_data->carton_status = 1;
+        box_data->scanned_by    = scanned_by;
+        box_data->scanned_at    = utils::Utils::now();
         break;
     }
 
@@ -172,6 +188,8 @@ std::shared_ptr<BoxData> BoxDataSqliteDao::get(const std::string &start_or_end_b
         box_data->status                  = get.getColumn("status");
         box_data->card_status             = get.getColumn("card_status");
         box_data->carton_status           = get.getColumn("carton_status");
+        box_data->scanned_by              = get.getColumn("scanned_by").getString();
+        box_data->scanned_at              = get.getColumn("scanned_at").getString();
 
         return box_data;
     }
@@ -183,7 +201,7 @@ bool BoxDataSqliteDao::update(const int &id, std::shared_ptr<BoxData> &box_data)
     try {
         std::string sql = "UPDATE box_data.[" + order_name_ +
             "] SET filename = ?,box_number = ?, start_number = ?, end_number = ?, quantity = ?, start_barcode = ?, end_barcode = ?, status = ?, card_status = "
-            "?, carton_status = ? WHERE id = ?";
+            "?, carton_status = ? , scanned_by = ?, scanned_at = ? WHERE id = ?";
         SQLite::Statement update(*db_, sql);
         update.bind(1, box_data->filename);
         update.bind(2, box_data->box_number);
@@ -195,7 +213,9 @@ bool BoxDataSqliteDao::update(const int &id, std::shared_ptr<BoxData> &box_data)
         update.bind(8, box_data->status);
         update.bind(9, box_data->card_status);
         update.bind(10, box_data->carton_status);
-        update.bind(11, id);
+        update.bind(11, box_data->scanned_by);
+        update.bind(12, box_data->scanned_at);
+        update.bind(13, id);
 
         return update.exec();
     } catch (std::exception &e) {
@@ -227,7 +247,9 @@ void BoxDataSqliteDao::init() {
             "end_barcode TEXT,"
             "status INTEGER DEFAULT 0,"
             "card_status INTEGER DEFAULT 0,"
-            "carton_status INTEGER DEFAULT 0)";
+            "carton_status INTEGER DEFAULT 0,"
+            "scanned_by TEXT DEFAULT '',"
+            "scanned_at TEXT DEFAULT '')";
 
         db_->exec(sql);
     }

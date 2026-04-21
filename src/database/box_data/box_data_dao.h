@@ -23,7 +23,7 @@ class BoxDataDao {
     virtual std::vector<std::shared_ptr<BoxData>> all(const std::string &start_number, const std::string &end_number) = 0;
 
     /// @brief Set the status of the box data to 1 when it is scanned.
-    virtual bool scanned(Type type, const std::string &start_barcode) = 0;
+    virtual bool scanned(Type type, const std::string &start_barcode, const std::string &scanned_by) = 0;
 
     /// @brief Set the status of the box data to 0 when it is rescanned.
     virtual bool rescanned(Type type, const std::string &start_barcode) = 0;

@@ -1,5 +1,6 @@
 #include "card_data_mysql_dao.h"
 #include "card_tables.hpp"
+#include "utils/utils.h"
 
 #include <memory>
 #include <qsettings>
@@ -59,6 +60,8 @@ std::vector<std::shared_ptr<CardData>> CardDataMysqlDao::all(const int &status) 
         card_data->iccid_barcode = one("iccid_barcode").asString();
         card_data->imsi_barcode  = one("imsi_barcode").asString();
         card_data->status        = one("status").asInt();
+        card_data->scanned_by    = one("scanned_by").asString();
+        card_data->scanned_at    = one("scanned_at").asString();
 
         card_datas.push_back(card_data);
     }
@@ -81,6 +84,8 @@ std::vector<std::shared_ptr<CardData>> CardDataMysqlDao::all(const std::string &
         card_data->iccid_barcode = one("iccid_barcode").asString();
         card_data->imsi_barcode  = one("imsi_barcode").asString();
         card_data->status        = one("status").asInt();
+        card_data->scanned_by    = one("scanned_by").asString();
+        card_data->scanned_at    = one("scanned_at").asString();
 
         card_datas.push_back(card_data);
     }
@@ -88,9 +93,11 @@ std::vector<std::shared_ptr<CardData>> CardDataMysqlDao::all(const std::string &
     return card_datas;
 }
 
-bool CardDataMysqlDao::scanned(const std::string &start_barcode) {
-    auto card_data    = get(start_barcode);
-    card_data->status = 1;
+bool CardDataMysqlDao::scanned(const std::string &start_barcode, const std::string &scanned_by) {
+    auto card_data        = get(start_barcode);
+    card_data->status     = 1;
+    card_data->scanned_by = scanned_by;
+    card_data->scanned_at = utils::Utils::now();
     return update(card_data->id, card_data);
 }
 
@@ -116,6 +123,8 @@ std::shared_ptr<CardData> CardDataMysqlDao::get(const std::string &start_barcode
     card_data->iccid_barcode = card_table("iccid_barcode").asString();
     card_data->imsi_barcode  = card_table("imsi_barcode").asString();
     card_data->status        = card_table("status").asInt();
+    card_data->scanned_by    = card_table("scanned_by").asString();
+    card_data->scanned_at    = card_table("scanned_at").asString();
 
     if (card_data->id == 0) {
         return nullptr;
@@ -135,6 +144,8 @@ bool CardDataMysqlDao::update(const int &id, std::shared_ptr<CardData> &card_dat
             {"iccid_barcode", card_data->iccid_barcode},
             {"imsi_barcode", card_data->imsi_barcode},
             {"status", card_data->status},
+            {"scanned_by", card_data->scanned_by},
+            {"scanned_at", card_data->scanned_at},
         });
 
     return true;
@@ -173,7 +184,9 @@ void CardDataMysqlDao::init() {
             "quantity INT NOT NULL,"
             "iccid_barcode VARCHAR(255) NOT NULL,"
             "imsi_barcode VARCHAR(255) NOT NULL,"
-            "status INT NOT NULL DEFAULT 0"
+            "status INT NOT NULL DEFAULT 0,"
+            "scanned_by VARCHAR(255) DEFAULT NULL,"
+            "scanned_at VARCHAR(255) DEFAULT NULL"
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
 
         db_->execute(sql);

@@ -11,6 +11,7 @@
 #include "database/role/role_dao_factory.h"
 #include "login.h"
 #include "setting.h"
+#include "task/export_excel.hpp"
 #include "task/handle_order.hpp"
 #include "utils/utils.h"
 
@@ -22,7 +23,6 @@
 #include <qchar.h>
 #include <qcombobox.h>
 #include <qcompleter>
-#include <qdatetime>
 #include <qdebug>
 #include <qfiledialog>
 #include <qkeyevent>
@@ -31,7 +31,6 @@
 #include <qmessagebox>
 #include <qpushbutton.h>
 #include <qpushbutton>
-#include <qtimer>
 #include <queue>
 #include <vector>
 #include <zel/core.h>
@@ -44,6 +43,7 @@ MainWindow::MainWindow(const std::shared_ptr<SQLite::Database> &sqlite_db, const
     : QMainWindow(parent)
     , ui_(new Ui_MainWindow)
     , loading_(std::make_shared<Loading>())
+    , auth_(std::make_shared<Auth>(user_dao))
     , current_box_number_(-1)
     , sqlite_db_(sqlite_db)
     , mysql_db_(mysql_db)
@@ -127,10 +127,10 @@ void MainWindow::compareBox() {
 
     int result = comparison.box(box_info);
     if (result == 0) {
-        log_msg = QString::asprintf("用户[%s] 内盒起始或结束条码[%s] 首卡条码[%s] 尾卡条码[%s], 扫描成功", user_dao_->currentUser()->name.c_str(),
+        log_msg = QString::asprintf("用户[%s] 内盒起始或结束条码[%s] 首卡条码[%s] 尾卡条码[%s], 扫描成功", user_dao_->currentUser()->description.c_str(),
                                     box_info->box_start_or_end_barcode.toStdString().c_str(), box_info->card_start_barcode.toStdString().c_str(),
                                     box_info->card_end_barcode.toStdString().c_str());
-        box_data_dao->scanned(BoxDataDao::Type::BOX, box_info->box_start_or_end_barcode.toStdString());
+        box_data_dao->scanned(BoxDataDao::Type::BOX, box_info->box_start_or_end_barcode.toStdString(), user_dao_->currentUser()->description);
 
         refreshBoxTable(order_dao_->currentOrder()->name, ui_->box_datas_status_comb_box->currentIndex() - 1);
         scroll_to_value(ui_->box_table, ui_->box_start_or_end_line->text(), false);
@@ -198,7 +198,8 @@ void MainWindow::refreshBoxTab() {
     // 下框默认不选中
     ui_->box_order_name_combo->setCurrentText("");
 
-    if (user_dao_->currentUser()->role_id == 1) {
+    // 用户管理员 及 品质
+    if (user_dao_->currentUser()->role_id == 1 || user_dao_->currentUser()->role_id == 3) {
         ui_->box_order_name_combo->setEnabled(false);
         ui_->box_start_or_end_line->setEnabled(false);
         ui_->card_start_line->setEnabled(false);
@@ -376,9 +377,9 @@ void MainWindow::compareCarton() {
         }
         }
 
-        log_msg = QString::asprintf("用户[%s] 外箱起始或结束条码[%s] 内盒起始或结束条码[%s], 扫描失败，失败原因[%s]", user_dao_->currentUser()->name.c_str(),
-                                    carton_info->carton_start_or_end_barcode.toStdString().c_str(), carton_info->target_barcode.toStdString().c_str(),
-                                    error.toStdString().c_str());
+        log_msg = QString::asprintf("用户[%s] 外箱起始或结束条码[%s] 内盒起始或结束条码[%s], 扫描失败，失败原因[%s]",
+                                    user_dao_->currentUser()->description.c_str(), carton_info->carton_start_or_end_barcode.toStdString().c_str(),
+                                    carton_info->target_barcode.toStdString().c_str(), error.toStdString().c_str());
 
         QMessageBox::warning(this, tr("提示"), tr("比对失败: ") + error);
     }
@@ -389,7 +390,7 @@ void MainWindow::compareCarton() {
     }
 
     if (is_end) {
-        carton_data_dao->scanned(carton_info->carton_start_or_end_barcode.toStdString());
+        carton_data_dao->scanned(carton_info->carton_start_or_end_barcode.toStdString(), user_dao_->currentUser()->description);
         refreshCartonTable(order_dao_->currentOrder()->name, ui_->carton_datas_status_comb_box->currentIndex() - 1);
         scroll_to_value(ui_->carton_table, ui_->carton_start_or_end_line->text(), false);
 
@@ -433,7 +434,8 @@ void MainWindow::refreshCartonTab() {
     // 下框默认不选中
     ui_->carton_order_name_combo->setCurrentText("");
 
-    if (user_dao_->currentUser()->role_id == 1) {
+    // 用户管理员 及 品质
+    if (user_dao_->currentUser()->role_id == 1 || user_dao_->currentUser()->role_id == 3) {
         ui_->carton_order_name_combo->setEnabled(false);
         ui_->carton_start_or_end_line->setEnabled(false);
         ui_->target_line->setEnabled(false);
@@ -732,10 +734,10 @@ void MainWindow::compareCard() {
 
     bool is_batch_end = false;
     if (is_success) {
-        log_msg = QString::asprintf("用户[%s] 内盒起始条码[%s] 标签条码[%s] 卡片条码[%s], 扫描成功", user_dao_->currentUser()->name.c_str(),
+        log_msg = QString::asprintf("用户[%s] 内盒起始条码[%s] 标签条码[%s] 卡片条码[%s], 扫描成功", user_dao_->currentUser()->description.c_str(),
                                     card_info->box_start_or_end_barcode.toStdString().c_str(), card_info->label_barcode.toStdString().c_str(),
                                     card_info->card_barcode.toStdString().c_str());
-        card_data_dao->scanned(card_info->card_barcode.toStdString());
+        card_data_dao->scanned(card_info->card_barcode.toStdString(), user_dao_->currentUser()->description);
         card_widgets_.front()->scanned();
 
         card_widgets_.pop();
@@ -746,9 +748,9 @@ void MainWindow::compareCard() {
     } else {
         error = tr("卡片条码与标签条码不匹配, 请核对!");
 
-        log_msg = QString::asprintf("用户[%s] 内盒起始条码[%s] 卡片条码[%s] 标签条码[%s], 扫描失败，失败原因[%s]", user_dao_->currentUser()->name.c_str(),
-                                    card_info->box_start_or_end_barcode.toUtf8().constData(), card_info->card_barcode.toUtf8().constData(),
-                                    card_info->label_barcode.toUtf8().constData(), error.toUtf8().constData()
+        log_msg = QString::asprintf("用户[%s] 内盒起始条码[%s] 卡片条码[%s] 标签条码[%s], 扫描失败，失败原因[%s]",
+                                    user_dao_->currentUser()->description.c_str(), card_info->box_start_or_end_barcode.toUtf8().constData(),
+                                    card_info->card_barcode.toUtf8().constData(), card_info->label_barcode.toUtf8().constData(), error.toUtf8().constData()
 
         );
 
@@ -762,7 +764,8 @@ void MainWindow::compareCard() {
     }
 
     if (is_box_end) {
-        if (is_batch_end) box_data_dao->scanned(BoxDataDao::Type::CARD, card_info->box_start_or_end_barcode.toStdString());
+        if (is_batch_end)
+            box_data_dao->scanned(BoxDataDao::Type::CARD, card_info->box_start_or_end_barcode.toStdString(), user_dao_->currentUser()->description);
 
         refreshCardTable(order_dao_->currentOrder()->name, ui_->card_datas_status_comb_box->currentIndex() - 1);
         scroll_to_value(ui_->card_table, ui_->card_box_start_or_end_line->text(), false);
@@ -826,7 +829,8 @@ void MainWindow::refreshCardTab() {
     // 下框默认不选中
     ui_->card_order_name_combo->setCurrentText("");
 
-    if (user_dao_->currentUser()->role_id == 1) {
+    // 用户管理员 及 品质
+    if (user_dao_->currentUser()->role_id == 1 || user_dao_->currentUser()->role_id == 3) {
         ui_->card_order_name_combo->setEnabled(false);
         ui_->card_box_start_or_end_line->setEnabled(false);
         ui_->card_line->setEnabled(false);
@@ -955,7 +959,7 @@ void MainWindow::addOrderBtnClicked() {
     check_format = QString::asprintf("卡片：%d 位 - %d 位\n内盒：%d 位 - %d 位\n外箱：%d 位 - %d 位", card_start_check_num, card_end_check_num,
                                      box_start_check_num, box_end_check_num, carton_start_check_num, carton_end_check_num);
 
-    std::string create_time = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss").toStdString();
+    std::string create_at = utils::Utils::now();
 
     if (order_name == "" || box_end_check_num == 0) {
         QMessageBox::warning(this, tr("添加失败"), tr("订单号或校验位数不能为空"));
@@ -987,7 +991,7 @@ void MainWindow::addOrderBtnClicked() {
                     box_file_path,
                     carton_file_path,
                     card_file_path,
-                    create_time};
+                    create_at};
 
     if (order_dao_->exists(new_order.name)) {
         QMessageBox::warning(this, tr("添加失败"), tr("订单号已存在"));
@@ -1024,10 +1028,10 @@ void MainWindow::updateOrderBtnClicked() {
     QString check_format;
     check_format = QString::asprintf("卡片：%d 位 - %d 位\n内盒：%d 位 - %d 位\n外箱：%d 位 - %d 位", card_start_check_num, card_end_check_num,
                                      box_start_check_num, box_end_check_num, carton_start_check_num, carton_end_check_num);
-    std::string            create_time = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss").toStdString();
-    std::shared_ptr<Order> new_order   = std::make_shared<Order>(Order{0, order_name, check_format.toStdString(), carton_start_check_num, carton_end_check_num,
+    std::string            create_at = utils::Utils::now();
+    std::shared_ptr<Order> new_order = std::make_shared<Order>(Order{0, order_name, check_format.toStdString(), carton_start_check_num, carton_end_check_num,
                                                                      box_start_check_num, box_end_check_num, card_start_check_num, card_end_check_num,
-                                                                     box_scanned_num, carton_scanned_num, mode_id, "", "", "", create_time});
+                                                                     box_scanned_num, carton_scanned_num, mode_id, "", "", "", create_at});
 
     if (order_name == "" || box_end_check_num == 0 || index == -1) {
         QMessageBox::warning(this, tr("修改失败"), tr("订单号或校验位数不能为空"));
@@ -1110,7 +1114,7 @@ void MainWindow::refreshOrderTab() {
         ui_->order_table->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(orders[i]->name)));
         ui_->order_table->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(orders[i]->check_format)));
         ui_->order_table->setItem(i, 2, new QTableWidgetItem(QString::fromStdString(mode_dao_->get(orders[i]->mode_id)->description)));
-        ui_->order_table->setItem(i, 3, new QTableWidgetItem(QString::fromStdString(orders[i]->create_time)));
+        ui_->order_table->setItem(i, 3, new QTableWidgetItem(QString::fromStdString(orders[i]->create_at)));
 
         // 设置内容居中
         ui_->order_table->item(i, 0)->setTextAlignment(Qt::AlignCenter);
@@ -1133,9 +1137,8 @@ void MainWindow::refreshOrderTab() {
     ui_->carton_file_path_line->clear();
     ui_->card_file_path_line->clear();
 
-    if (user_dao_->currentUser()->role_id == 2) {
-        ui_->clear_order_btn->setEnabled(false);
-    } else if (user_dao_->currentUser()->role_id == 3) {
+    // 用户管理员 及 生产
+    if (user_dao_->currentUser()->role_id == 1 || user_dao_->currentUser()->role_id == 2) {
         ui_->order_name_line->setEnabled(false);
         ui_->box_start_spin_box->setEnabled(false);
         ui_->box_end_spin_box->setEnabled(false);
@@ -1145,6 +1148,7 @@ void MainWindow::refreshOrderTab() {
         ui_->carton_end_spin_box->setEnabled(false);
         ui_->box_file_path_line->setEnabled(false);
         ui_->carton_file_path_line->setEnabled(false);
+        ui_->card_file_path_line->setEnabled(false);
         ui_->select_box_file_ptn->setEnabled(false);
         ui_->select_carton_file_ptn->setEnabled(false);
         ui_->select_card_file_ptn->setEnabled(false);
@@ -1158,10 +1162,11 @@ void MainWindow::refreshOrderTab() {
 
 void MainWindow::addUserBtnClicked() {
     // 获取用户信息
-    std::string name     = ui_->selected_user_edit->text().toStdString();
-    std::string password = ui_->selected_password_edit->text().toStdString();
-    int         role     = ui_->selected_combo_box->currentIndex();
-    std::string language = "zh_US";
+    std::string name        = ui_->selected_user_edit->text().toStdString();
+    std::string description = ui_->selected_description_edit->text().toStdString();
+    std::string password    = ui_->selected_password_edit->text().toStdString();
+    int         role        = ui_->selected_combo_box->currentIndex();
+    std::string language    = "zh_US";
     if (name == "" || password == "") {
         QMessageBox::warning(this, tr("添加失败"), tr("用户名或密码不能为空"));
         return;
@@ -1172,7 +1177,7 @@ void MainWindow::addUserBtnClicked() {
         return;
     }
 
-    User new_user = {0, name, password, role + 1};
+    User new_user = {0, name, description, password, role + 1};
 
     if (user_dao_->exists(new_user.name)) {
         QMessageBox::warning(this, tr("添加失败"), tr("用户已存在"));
@@ -1193,11 +1198,12 @@ void MainWindow::updateUserBtnClicked() {
     int index = ui_->user_table->currentRow();
 
     // 获取用户信息
-    std::string name     = ui_->selected_user_edit->text().toStdString();
-    std::string password = ui_->selected_password_edit->text().toStdString();
-    int         role     = ui_->selected_combo_box->currentIndex();
-    std::string language = "zh_US";
-    User        new_user = {0, name, password, role + 1};
+    std::string name        = ui_->selected_user_edit->text().toStdString();
+    std::string description = ui_->selected_description_edit->text().toStdString();
+    std::string password    = ui_->selected_password_edit->text().toStdString();
+    int         role        = ui_->selected_combo_box->currentIndex();
+    std::string language    = "zh_US";
+    User        new_user    = {0, name, description, password, role + 1};
 
     if (name == "" || password == "" || index == -1) {
         QMessageBox::warning(this, tr("修改失败"), tr("用户名或密码不能为空"));
@@ -1263,6 +1269,7 @@ void MainWindow::showSelectedUser() {
     int index = ui_->user_table->currentRow();
 
     ui_->selected_user_edit->setText(QString::fromStdString(user_dao_->all()[index]->name));
+    ui_->selected_description_edit->setText(QString::fromStdString(user_dao_->all()[index]->description));
     ui_->selected_password_edit->setText(QString::fromStdString(user_dao_->all()[index]->password));
     ui_->selected_combo_box->setCurrentIndex((int) user_dao_->all()[index]->role_id - 1);
 }
@@ -1274,19 +1281,22 @@ void MainWindow::refreshUserTab() {
     // 设置表格内容
     for (int i = 0; i < int(users.size()); i++) {
         ui_->user_table->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(users[i]->name)));
-        ui_->user_table->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(role_dao_->get(users[i]->role_id)->description)));
+        ui_->user_table->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(users[i]->description)));
+        ui_->user_table->setItem(i, 2, new QTableWidgetItem(QString::fromStdString(role_dao_->get(users[i]->role_id)->description)));
 
         // 设置内容居中
         ui_->user_table->item(i, 0)->setTextAlignment(Qt::AlignCenter);
         ui_->user_table->item(i, 1)->setTextAlignment(Qt::AlignCenter);
+        ui_->user_table->item(i, 2)->setTextAlignment(Qt::AlignCenter);
     }
 
     ui_->selected_user_edit->clear();
+    ui_->selected_description_edit->clear();
     ui_->selected_password_edit->clear();
     ui_->selected_combo_box->setCurrentIndex(-1);
-    if (user_dao_->currentUser()->role_id == 2) {
-        ui_->clear_user_btn->setEnabled(false);
-    } else if (user_dao_->currentUser()->role_id == 3) {
+
+    // 生产 及 品质
+    if (user_dao_->currentUser()->role_id == 2 || user_dao_->currentUser()->role_id == 3) {
         ui_->add_user_btn->setEnabled(false);
         ui_->remove_user_btn->setEnabled(false);
         ui_->update_user_btn->setEnabled(false);
@@ -1294,7 +1304,346 @@ void MainWindow::refreshUserTab() {
 
         ui_->selected_user_edit->setEnabled(false);
         ui_->selected_password_edit->setEnabled(false);
+        ui_->selected_description_edit->setEnabled(false);
         ui_->selected_combo_box->setEnabled(false);
+    }
+}
+
+void MainWindow::searchLogBtnClicked() {
+    // 获取搜索条件
+    auto order_name = ui_->log_order_name_combo->currentText().toStdString();
+    auto type       = ui_->log_scan_type_combo->currentIndex();
+    auto status     = ui_->log_status_combo->currentIndex();
+
+    if (order_name == "" || type == -1 || status == -1) {
+        QMessageBox::warning(this, tr("搜索失败"), tr("请选择搜索条件"));
+        return;
+    }
+
+    switch (status) {
+    case 0:
+        status = -1;
+        break;
+
+    case 1:
+        status = 1;
+        break;
+
+    case 2:
+        status = 0;
+        break;
+    }
+
+    refreshLogTable(order_name, type, status);
+}
+
+void MainWindow::qcConfirmBtnClicked() {
+    auto order_name = ui_->log_order_name_combo->currentText().toStdString();
+    auto type       = ui_->log_scan_type_combo->currentIndex();
+    auto status     = ui_->log_status_combo->currentIndex();
+
+    if (order_name == "" || type == -1 || status == -1) {
+        QMessageBox::warning(this, tr("确认失败"), tr("请先查询订单日志, 后进行确认!"));
+        return;
+    }
+
+    auto confirm_by = ui_->log_qc_confirm_by_label->text().toStdString();
+    auto confirm_at = ui_->log_qc_confirm_at_label->text().toStdString();
+    if (confirm_by != "" || confirm_at != "") {
+        QMessageBox::warning(this, tr("确认失败"), tr("订单已进行品质确认， 请勿重复确认!"));
+        return;
+    }
+
+    auth_->show();
+}
+
+void MainWindow::exportExacelBtnClicked() {
+    auto order_name = ui_->log_order_name_combo->currentText().toStdString();
+    auto type_idx   = ui_->log_scan_type_combo->currentIndex();
+    auto status     = ui_->log_status_combo->currentIndex();
+
+    if (order_name == "" || type_idx == -1 || status == -1) {
+        QMessageBox::warning(this, tr("导出失败"), tr("请先查询订单日志, 后进行导出!"));
+        return;
+    }
+
+    QString file_dir = QFileDialog::getExistingDirectory(this, tr("选择导出 Excel 文件路径"), "", QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+
+    if (file_dir.isEmpty()) {
+        QMessageBox::warning(this, tr("导出失败"), tr("请选择导出 Excel 文件路径"));
+        return;
+    }
+
+    loading_->show();
+
+    OrderDao::Type type;
+    switch (type_idx) {
+    case 0:
+        type = OrderDao::Type::BOX;
+        break;
+    case 1:
+        type = OrderDao::Type::CARTON;
+        break;
+    case 2:
+        type = OrderDao::Type::CARD;
+        break;
+    }
+
+    switch (status) {
+    case 0:
+        status = -1;
+        break;
+
+    case 1:
+        status = 1;
+        break;
+
+    case 2:
+        status = 0;
+        break;
+    }
+
+    QString file_name = order_name.c_str();
+    file_name += "_";
+    file_name += ui_->log_scan_type_combo->currentText();
+    file_name += "_";
+    file_name += ui_->log_status_combo->currentText();
+    file_name += ".xlsx";
+    QString file_path = QDir(file_dir).filePath(file_name);
+
+    // 添加订单
+    ExportExcel *export_excel = new ExportExcel(sqlite_db_, mysql_db_, order_name, type, status, file_path.toUtf8().constData());
+
+    connect(export_excel, &ExportExcel::exportExcelSuccess, this, &MainWindow::exportExcelSuccess);
+    connect(export_excel, &ExportExcel::exportExcelFailure, this, &MainWindow::exportExcelFailure);
+
+    export_excel->start();
+}
+
+void MainWindow::refreshLogTab() {
+    ui_->log_order_name_combo->clear();
+    ui_->log_scan_type_combo->setCurrentIndex(-1);
+    ui_->log_status_combo->setCurrentIndex(-1);
+    ui_->log_quantity_label->setText("0");
+    ui_->log_sanned_label->setText("0");
+    ui_->log_unsanned_label->setText("0");
+    ui_->log_qc_confirm_by_label->setText("");
+    ui_->log_qc_confirm_at_label->setText("");
+    ui_->log_table->setRowCount(0);
+
+    // 设置订单号下拉框内容
+    for (auto &order : order_dao_->all()) {
+        ui_->log_order_name_combo->addItem(QString::fromStdString(order->name));
+    }
+
+    // 用户管理员
+    if (user_dao_->currentUser()->role_id == 1) {
+        ui_->log_order_name_combo->setEnabled(false);
+        ui_->log_scan_type_combo->setEnabled(false);
+        ui_->log_status_combo->setEnabled(false);
+        ui_->log_search_btn->setEnabled(false);
+        ui_->log_export_excel_btn->setEnabled(false);
+        ui_->log_qc_confirm_btn->setEnabled(false);
+    }
+}
+
+void MainWindow::refreshLogTable(const std::string &order_name, const int &type, const int &status) {
+    switch (type) {
+    // 内盒
+    case 0: {
+        return refreshBoxLogTable(order_name, status);
+    }
+
+    // 外箱
+    case 1: {
+        return refreshCartonLogTable(order_name, status);
+    }
+
+    // 卡片
+    case 2: {
+        return refreshCardLogTable(order_name, status);
+    }
+
+    default:
+        QMessageBox::warning(this, tr("搜索失败"), tr("暂不支持该类型搜索"));
+        break;
+    }
+}
+
+void MainWindow::refreshBoxLogTable(const std::string &order_name, const int &status) {
+    auto                                  box_data_dao = BoxDataDaoFactory::create(sqlite_db_, mysql_db_, order_name);
+    std::vector<std::shared_ptr<BoxData>> box_datas;
+
+    if (status == -1) {
+        box_datas = box_data_dao->all();
+    } else {
+        box_datas = box_data_dao->all(BoxDataDao::Type::BOX, status);
+    }
+
+    ui_->log_quantity_label->setText(QString::number(box_data_dao->all(BoxDataDao::Type::BOX).size()));
+    ui_->log_sanned_label->setText(QString::number(box_data_dao->all(BoxDataDao::Type::BOX, 1).size()));
+    ui_->log_unsanned_label->setText(QString::number(box_data_dao->all(BoxDataDao::Type::BOX, 0).size()));
+    ui_->log_qc_confirm_by_label->setText(QString::fromStdString(order_dao_->get(order_name)->box_confirm_by));
+    ui_->log_qc_confirm_at_label->setText(QString::fromStdString(order_dao_->get(order_name)->box_confirm_at));
+
+    ui_->log_table->setRowCount(box_datas.size());
+    for (int i = 0; i < int(box_datas.size()); i++) {
+        // 创建 item
+        auto item0 = new QTableWidgetItem(QString::fromStdString(box_datas[i]->box_number));
+        auto item1 = new QTableWidgetItem(QString::fromStdString(box_datas[i]->start_number));
+        auto item2 = new QTableWidgetItem(box_datas[i]->status == 1 ? "已扫描" : "未扫描");
+        auto item3 = new QTableWidgetItem(QString::fromStdString(box_datas[i]->scanned_by));
+        auto item4 = new QTableWidgetItem(QString::fromStdString(box_datas[i]->scanned_at));
+
+        if (status == -1) {
+            if (box_datas[i]->status == 1) {
+                QBrush greenBrush(QColor(144, 238, 144)); // 淡绿色
+                item0->setBackground(greenBrush);
+                item1->setBackground(greenBrush);
+                item2->setBackground(greenBrush);
+                item3->setBackground(greenBrush);
+                item4->setBackground(greenBrush);
+            } else {
+                QBrush greenBrush(QColor(233, 231, 227)); // 灰色
+                item0->setBackground(greenBrush);
+                item1->setBackground(greenBrush);
+                item2->setBackground(greenBrush);
+                item3->setBackground(greenBrush);
+                item4->setBackground(greenBrush);
+            }
+        }
+
+        // 放到表格里
+        ui_->log_table->setItem(i, 0, item0);
+        ui_->log_table->setItem(i, 1, item1);
+        ui_->log_table->setItem(i, 2, item2);
+        ui_->log_table->setItem(i, 3, item3);
+        ui_->log_table->setItem(i, 4, item4);
+
+        // 设置内容居中
+        item0->setTextAlignment(Qt::AlignCenter);
+        item1->setTextAlignment(Qt::AlignCenter);
+        item2->setTextAlignment(Qt::AlignCenter);
+        item3->setTextAlignment(Qt::AlignCenter);
+        item4->setTextAlignment(Qt::AlignCenter);
+    }
+}
+
+void MainWindow::refreshCartonLogTable(const std::string &order_name, const int &status) {
+    auto                                     carton_data_dao = CartonDataDaoFactory::create(sqlite_db_, mysql_db_, order_name);
+    std::vector<std::shared_ptr<CartonData>> carton_datas;
+
+    if (status == -1) {
+        carton_datas = carton_data_dao->all();
+    } else {
+        carton_datas = carton_data_dao->all(status);
+    }
+
+    ui_->log_quantity_label->setText(QString::number(carton_data_dao->all().size()));
+    ui_->log_sanned_label->setText(QString::number(carton_data_dao->all(1).size()));
+    ui_->log_unsanned_label->setText(QString::number(carton_data_dao->all(0).size()));
+    ui_->log_qc_confirm_by_label->setText(QString::fromStdString(order_dao_->get(order_name)->carton_confirm_by));
+    ui_->log_qc_confirm_at_label->setText(QString::fromStdString(order_dao_->get(order_name)->carton_confirm_at));
+
+    ui_->log_table->setRowCount(carton_datas.size());
+    for (int i = 0; i < int(carton_datas.size()); i++) {
+        // 创建 item
+        auto item0 = new QTableWidgetItem(QString::fromStdString(carton_datas[i]->carton_number));
+        auto item1 = new QTableWidgetItem(QString::fromStdString(carton_datas[i]->start_number));
+        auto item2 = new QTableWidgetItem(carton_datas[i]->status == 1 ? "已扫描" : "未扫描");
+        auto item3 = new QTableWidgetItem(QString::fromStdString(carton_datas[i]->scanned_by));
+        auto item4 = new QTableWidgetItem(QString::fromStdString(carton_datas[i]->scanned_at));
+
+        if (status == -1) {
+            if (carton_datas[i]->status == 1) {
+                QBrush greenBrush(QColor(144, 238, 144)); // 淡绿色
+                item0->setBackground(greenBrush);
+                item1->setBackground(greenBrush);
+                item2->setBackground(greenBrush);
+                item3->setBackground(greenBrush);
+                item4->setBackground(greenBrush);
+            } else {
+                QBrush greenBrush(QColor(233, 231, 227)); // 灰色
+                item0->setBackground(greenBrush);
+                item1->setBackground(greenBrush);
+                item2->setBackground(greenBrush);
+                item3->setBackground(greenBrush);
+                item4->setBackground(greenBrush);
+            }
+        }
+
+        // 放到表格里
+        ui_->log_table->setItem(i, 0, item0);
+        ui_->log_table->setItem(i, 1, item1);
+        ui_->log_table->setItem(i, 2, item2);
+        ui_->log_table->setItem(i, 3, item3);
+        ui_->log_table->setItem(i, 4, item4);
+
+        // 设置内容居中
+        item0->setTextAlignment(Qt::AlignCenter);
+        item1->setTextAlignment(Qt::AlignCenter);
+        item2->setTextAlignment(Qt::AlignCenter);
+        item3->setTextAlignment(Qt::AlignCenter);
+        item4->setTextAlignment(Qt::AlignCenter);
+    }
+}
+
+void MainWindow::refreshCardLogTable(const std::string &order_name, const int &status) {
+    auto                                   card_data_dao = CardDataDaoFactory::create(sqlite_db_, mysql_db_, order_name);
+    std::vector<std::shared_ptr<CardData>> card_datas;
+
+    if (status == -1) {
+        card_datas = card_data_dao->all();
+    } else {
+        card_datas = card_data_dao->all(status);
+    }
+
+    ui_->log_quantity_label->setText(QString::number(card_data_dao->all().size()));
+    ui_->log_sanned_label->setText(QString::number(card_data_dao->all(1).size()));
+    ui_->log_unsanned_label->setText(QString::number(card_data_dao->all(0).size()));
+    ui_->log_qc_confirm_by_label->setText(QString::fromStdString(order_dao_->get(order_name)->card_confirm_by));
+    ui_->log_qc_confirm_at_label->setText(QString::fromStdString(order_dao_->get(order_name)->card_confirm_at));
+
+    ui_->log_table->setRowCount(card_datas.size());
+    for (int i = 0; i < int(card_datas.size()); i++) {
+        // 创建 item
+        auto item0 = new QTableWidgetItem(QString::fromStdString(card_datas[i]->card_number));
+        auto item1 = new QTableWidgetItem(QString::fromStdString(card_datas[i]->iccid_barcode));
+        auto item2 = new QTableWidgetItem(card_datas[i]->status == 1 ? "已扫描" : "未扫描");
+        auto item3 = new QTableWidgetItem(QString::fromStdString(card_datas[i]->scanned_by));
+        auto item4 = new QTableWidgetItem(QString::fromStdString(card_datas[i]->scanned_at));
+
+        if (status == -1) {
+            if (card_datas[i]->status == 1) {
+                QBrush greenBrush(QColor(144, 238, 144)); // 淡绿色
+                item0->setBackground(greenBrush);
+                item1->setBackground(greenBrush);
+                item2->setBackground(greenBrush);
+                item3->setBackground(greenBrush);
+                item4->setBackground(greenBrush);
+            } else {
+                QBrush greenBrush(QColor(233, 231, 227)); // 灰色
+                item0->setBackground(greenBrush);
+                item1->setBackground(greenBrush);
+                item2->setBackground(greenBrush);
+                item3->setBackground(greenBrush);
+                item4->setBackground(greenBrush);
+            }
+        }
+
+        // 放到表格里
+        ui_->log_table->setItem(i, 0, item0);
+        ui_->log_table->setItem(i, 1, item1);
+        ui_->log_table->setItem(i, 2, item2);
+        ui_->log_table->setItem(i, 3, item3);
+        ui_->log_table->setItem(i, 4, item4);
+
+        // 设置内容居中
+        item0->setTextAlignment(Qt::AlignCenter);
+        item1->setTextAlignment(Qt::AlignCenter);
+        item2->setTextAlignment(Qt::AlignCenter);
+        item3->setTextAlignment(Qt::AlignCenter);
+        item4->setTextAlignment(Qt::AlignCenter);
     }
 }
 
@@ -1369,9 +1718,52 @@ void MainWindow::on_order_group_box_fileDropped(const QString &path) {
     }
 }
 
+void MainWindow::authSuccess(const std::string &confirm_by) {
+    auth_->hide();
+    auth_->clearEdit();
+
+    auto order_name = ui_->log_order_name_combo->currentText().toStdString();
+    auto type_idx   = ui_->log_scan_type_combo->currentIndex();
+
+    OrderDao::Type type;
+    switch (type_idx) {
+    case 0:
+        type = OrderDao::Type::BOX;
+        break;
+    case 1:
+        type = OrderDao::Type::CARTON;
+        break;
+    case 2:
+        type = OrderDao::Type::CARD;
+        break;
+    }
+
+    if (order_dao_->confirm(order_name, confirm_by, type)) {
+        QMessageBox::information(this, tr("确认成功"), tr("订单确认成功"));
+        refreshLogTab();
+    } else {
+        QMessageBox::warning(this, tr("确认失败"), tr("订单确认失败"));
+    }
+}
+
+void MainWindow::authFailure(const QString &message) {
+    auth_->hide();
+    auth_->clearEdit();
+    QMessageBox::warning(this, tr("确认失败"), message);
+}
+
+void MainWindow::exportExcelSuccess() {
+    loading_->hide();
+    QMessageBox::information(this, tr("导出成功"), tr("导出成功"));
+}
+void MainWindow::exportExcelFailure() {
+    loading_->hide();
+    QMessageBox::warning(this, tr("导出失败"), tr("导出失败"));
+}
+
 void MainWindow::init_window() {
     // 设置窗口标题
-    setWindowTitle(tr("条码比对系统 v3.1.5"));
+    setWindowTitle(tr("条码比对系统 v3.2.0           当前用户:   ") + QString::fromStdString(user_dao_->currentUser()->description));
 }
 
 void MainWindow::init_ui() {
@@ -1389,6 +1781,9 @@ void MainWindow::init_ui() {
 
     // 初始化用户管理 tab
     init_user_tab();
+
+    // 初始化日志管理 tab
+    init_log_tab();
 }
 
 void MainWindow::init_dao() {
@@ -1480,12 +1875,33 @@ void MainWindow::init_order_tab() {
 }
 
 void MainWindow::init_user_tab() {
-    QStringList user_header = {tr("用户名"), tr("权限")};
+    QStringList user_header = {tr("用户名"), tr("中文名"), tr("权限")};
     init_table(ui_->user_table, user_header, user_header.size());
     // 设置权限下拉框内容
     for (auto &role : role_dao_->all()) {
         ui_->selected_combo_box->addItem(QString::fromStdString(role->description));
     }
+}
+
+void MainWindow::init_log_tab() {
+    QStringList log_header = {tr("盒号/箱号"), tr("起始条码"), tr("扫描详情"), tr("操作人"), tr("操作时间")};
+    init_table(ui_->log_table, log_header, log_header.size());
+
+    // 下拉框模糊匹配
+    QStringList order_name_list;
+    for (auto &order : order_dao_->all()) {
+        order_name_list.append(QString::fromStdString(order->name));
+    }
+
+    QCompleter *completer = new QCompleter(order_name_list, this);
+    completer->setFilterMode(Qt::MatchContains);
+    ui_->log_order_name_combo->setCompleter(completer);
+
+    QStringList log_scan_types = {tr("内盒比对"), tr("外箱比对"), tr("卡片比对")};
+    ui_->log_scan_type_combo->addItems(log_scan_types);
+
+    QStringList log_status = {tr("全部"), tr("已扫描"), tr("未扫描")};
+    ui_->log_status_combo->addItems(log_status);
 }
 
 void MainWindow::init_table(QTableWidget *table, QStringList header, int col_count) {
@@ -1575,6 +1991,11 @@ void MainWindow::init_signals_slots() {
             refreshUserTab();
             break;
 
+        // 日志管理
+        case 5:
+            refreshLogTab();
+            break;
+
         default:
             break;
         }
@@ -1604,7 +2025,7 @@ void MainWindow::init_signals_slots() {
     connect(ui_->card_stop_label_btn, &QPushButton::clicked, this, &MainWindow::toCardBarcode);
     connect(ui_->card_line, &QLineEdit::returnPressed, this, &MainWindow::compareCard);
 
-    // 订单配置 tab
+    // 订单管理 Tab
     connect(ui_->select_box_file_ptn, &QPushButton::clicked, this, &MainWindow::selectBoxFileBtnClicked);
     connect(ui_->select_carton_file_ptn, &QPushButton::clicked, this, &MainWindow::selectCartonFileBtnClicked);
     connect(ui_->select_card_file_ptn, &QPushButton::clicked, this, &MainWindow::selectCardFileBtnClicked);
@@ -1615,12 +2036,19 @@ void MainWindow::init_signals_slots() {
     connect(ui_->clear_order_btn, &QPushButton::clicked, this, &MainWindow::clearOrderBtnClicked);
     connect(ui_->order_group_box, &OrderGroupBox::fileDropped, this, &MainWindow::on_order_group_box_fileDropped);
 
-    // 用户配置 tab
+    // 用户管理 Tab
     connect(ui_->user_table, &QTableWidget::itemSelectionChanged, this, &MainWindow::showSelectedUser);
     connect(ui_->update_user_btn, &QPushButton::clicked, this, &MainWindow::updateUserBtnClicked);
     connect(ui_->add_user_btn, &QPushButton::clicked, this, &MainWindow::addUserBtnClicked);
     connect(ui_->remove_user_btn, &QPushButton::clicked, this, &MainWindow::removeUserBtnClicked);
     connect(ui_->clear_user_btn, &QPushButton::clicked, this, &MainWindow::clearUserBtnClicked);
+
+    // 日志管理 Tab
+    connect(ui_->log_search_btn, &QPushButton::clicked, this, &MainWindow::searchLogBtnClicked);
+    connect(ui_->log_qc_confirm_btn, &QPushButton::clicked, this, &MainWindow::qcConfirmBtnClicked);
+    connect(ui_->log_export_excel_btn, &QPushButton::clicked, this, &MainWindow::exportExacelBtnClicked);
+    connect(auth_.get(), &Auth::authSuccess, this, &MainWindow::authSuccess);
+    connect(auth_.get(), &Auth::authFailure, this, &MainWindow::authFailure);
 }
 
 void MainWindow::switch_language(const QString &language_file) {
@@ -1637,7 +2065,7 @@ void MainWindow::switch_language(const QString &language_file) {
 bool MainWindow::log(const QString &filename, const QString &msg) {
 
     // 获取当前时间
-    QString current_date_time = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+    QString current_date_time = QString::fromStdString(utils::Utils::now());
 
     // 获取当前程序所在路径
     QString current_path = QCoreApplication::applicationDirPath();

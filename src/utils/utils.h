@@ -33,6 +33,9 @@ class Utils {
     /// @param remove 是否需要删除原文件
     static bool decompressionZipFile(const std::string &file_path, const std::string &save_path, bool remove = false);
 
+    /// @brief 获取当前时间
+    static std::string now();
+
   private:
     static QFileInfoList ergodic_compression_file(QZipWriter *writer, const QString &rootPath, QString dirPath);
 

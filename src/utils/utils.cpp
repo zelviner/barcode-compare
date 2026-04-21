@@ -193,4 +193,6 @@ bool Utils::delete_file_or_folder(const std::string &str_path) {
     return true;
 }
 
+std::string Utils::now() { return QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss").toStdString(); }
+
 } // namespace utils

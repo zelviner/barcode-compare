@@ -20,7 +20,7 @@ class BoxDataSqliteDao : public BoxDataDao {
     std::vector<std::shared_ptr<BoxData>> all(const std::string &start_number, const std::string &end_number) override;
 
     /// @brief Set the status of the box data to 1 when it is scanned.
-    bool scanned(Type type, const std::string &start_barcode) override;
+    bool scanned(Type type, const std::string &start_barcode, const std::string &scanned_by) override;
 
     /// @brief Set the status of the box data to 0 when it is rescanned.
     bool rescanned(Type type, const std::string &start_barcode) override;

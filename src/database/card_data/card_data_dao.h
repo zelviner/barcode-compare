@@ -16,7 +16,7 @@ class CardDataDao {
     virtual std::vector<std::shared_ptr<CardData>> all(const std::string &start_number, const std::string &end_number) = 0;
 
     /// @brief Set the status of the card data to 1 when it is scanned.
-    virtual bool scanned(const std::string &iccid_barcode) = 0;
+    virtual bool scanned(const std::string &iccid_barcode, const std::string &scanned_by) = 0;
 
     /// @brief Set the status of the card data to 0 when it is rescanned.
     virtual bool rescanned(const std::string &start_barcode, const std::string &end_barcode) = 0;

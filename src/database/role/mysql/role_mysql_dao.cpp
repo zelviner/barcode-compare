@@ -58,12 +58,12 @@ void RoleMysqlDao::init() {
         db_->execute(sql);
 
         // initialize role data
-        std::shared_ptr<Role> super_admin = std::make_shared<Role>(Role{0, "SuperAdmin", "超级管理员"});
-        std::shared_ptr<Role> admin       = std::make_shared<Role>(Role{0, "Admin", "管理员"});
-        std::shared_ptr<Role> user        = std::make_shared<Role>(Role{0, "User", "普通用户"});
+        std::shared_ptr<Role> user_admin = std::make_shared<Role>(Role{0, "SA", "用户管理员"});
+        std::shared_ptr<Role> production = std::make_shared<Role>(Role{0, "PD", "生产"});
+        std::shared_ptr<Role> qc         = std::make_shared<Role>(Role{0, "QC", "品质"});
 
-        add(super_admin);
-        add(admin);
-        add(user);
+        add(user_admin);
+        add(production);
+        add(qc);
     }
 }
